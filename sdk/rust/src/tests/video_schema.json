@@ -1,0 +1,202 @@
+{
+  "did:ng:z:MiruVideoDocumentShape": {
+    "iri": "did:ng:z:MiruVideoDocumentShape",
+    "predicates": [
+      {
+        "readablePredicate": "@type",
+        "dataTypes": [{ "valType": "iri", "literals": ["did:ng:z:MiruVideoDocument"] }],
+        "maxCardinality": 1,
+        "minCardinality": 1,
+        "iri": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
+      },
+      {
+        "readablePredicate": "assets",
+        "dataTypes": [
+          { "valType": "shape", "shape": "did:ng:z:MiruMediaAssetShape" },
+          { "valType": "shape", "shape": "did:ng:z:MiruVideoEffectAssetShape" }
+        ],
+        "maxCardinality": -1,
+        "minCardinality": 0,
+        "iri": "did:ng:z:assets"
+      }
+    ]
+  },
+  "did:ng:z:MiruMediaAssetShape": {
+    "iri": "did:ng:z:MiruMediaAssetShape",
+    "predicates": [
+      {
+        "readablePredicate": "@type",
+        "dataTypes": [{ "valType": "iri", "literals": ["did:ng:z:MiruMediaAsset"] }],
+        "maxCardinality": 1,
+        "minCardinality": 1,
+        "iri": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+        "extra": true
+      },
+      {
+        "readablePredicate": "video",
+        "dataTypes": [
+          {
+            "valType": "shape",
+            "shape": "did:ng:z:MiruMediaAssetShape||did:ng:z:video"
+          }
+        ],
+        "maxCardinality": 1,
+        "minCardinality": 0,
+        "iri": "did:ng:z:video"
+      },
+      {
+        "readablePredicate": "audio",
+        "dataTypes": [
+          {
+            "valType": "shape",
+            "shape": "did:ng:z:MiruMediaAssetShape||did:ng:z:audio"
+          }
+        ],
+        "maxCardinality": 1,
+        "minCardinality": 0,
+        "iri": "did:ng:z:audio"
+      }
+    ]
+  },
+  "did:ng:z:MiruMediaAssetShape||did:ng:z:video": {
+    "iri": "did:ng:z:MiruMediaAssetShape||did:ng:z:video",
+    "predicates": [
+      {
+        "readablePredicate": "duration",
+        "dataTypes": [{ "valType": "shape", "shape": "did:ng:z:MiruMediaAssetShape||did:ng:z:video||did:ng:z:duration" }],
+        "maxCardinality": 1,
+        "minCardinality": 1,
+        "iri": "did:ng:z:duration"
+      },
+      {
+        "readablePredicate": "frameRate",
+        "dataTypes": [{ "valType": "number" }],
+        "maxCardinality": 1,
+        "minCardinality": 1,
+        "iri": "did:ng:z:frameRate"
+      }
+    ]
+  },
+  "did:ng:z:MiruMediaAssetShape||did:ng:z:video||did:ng:z:duration": {
+    "iri": "did:ng:z:MiruMediaAssetShape||did:ng:z:video||did:ng:z:duration",
+    "predicates": [
+      {
+        "readablePredicate": "value",
+        "dataTypes": [{ "valType": "number" }],
+        "maxCardinality": 1,
+        "minCardinality": 1,
+        "iri": "did:ng:z:value"
+      },
+      {
+        "readablePredicate": "rate",
+        "dataTypes": [{ "valType": "number" }],
+        "maxCardinality": 1,
+        "minCardinality": 1,
+        "iri": "did:ng:z:rate"
+      }
+    ]
+  },
+  "did:ng:z:MiruMediaAssetShape||did:ng:z:video||did:ng:z:firstTimestamp": {
+    "iri": "did:ng:z:MiruMediaAssetShape||did:ng:z:video||did:ng:z:firstTimestamp",
+    "predicates": [
+      {
+        "readablePredicate": "value",
+        "dataTypes": [{ "valType": "number" }],
+        "maxCardinality": 1,
+        "minCardinality": 1,
+        "iri": "did:ng:z:value"
+      },
+      {
+        "readablePredicate": "rate",
+        "dataTypes": [{ "valType": "number" }],
+        "maxCardinality": 1,
+        "minCardinality": 1,
+        "iri": "did:ng:z:rate"
+      }
+    ]
+  },
+  "did:ng:z:MiruMediaAssetShape||did:ng:z:audio": {
+    "iri": "did:ng:z:MiruMediaAssetShape||did:ng:z:audio",
+    "predicates": [
+      {
+        "readablePredicate": "codec",
+        "dataTypes": [{ "valType": "string" }],
+        "maxCardinality": 1,
+        "minCardinality": 1,
+        "iri": "did:ng:z:codec"
+      },
+      {
+        "readablePredicate": "duration",
+        "dataTypes": [{ "valType": "shape", "shape": "did:ng:z:MiruMediaAssetShape||did:ng:z:audio||did:ng:z:duration" }],
+        "maxCardinality": 1,
+        "minCardinality": 1,
+        "iri": "did:ng:z:duration"
+      },
+      {
+        "readablePredicate": "firstTimestamp",
+        "dataTypes": [{ "valType": "shape", "shape": "did:ng:z:MiruMediaAssetShape||did:ng:z:audio||did:ng:z:firstTimestamp" }],
+        "maxCardinality": 1,
+        "minCardinality": 1,
+        "iri": "did:ng:z:firstTimestamp"
+      }
+    ]
+  },
+  "did:ng:z:MiruMediaAssetShape||did:ng:z:audio||did:ng:z:duration": {
+    "iri": "did:ng:z:MiruMediaAssetShape||did:ng:z:audio||did:ng:z:duration",
+    "predicates": [
+      {
+        "readablePredicate": "value",
+        "dataTypes": [{ "valType": "number" }],
+        "maxCardinality": 1,
+        "minCardinality": 1,
+        "iri": "did:ng:z:value"
+      },
+      {
+        "readablePredicate": "rate",
+        "dataTypes": [{ "valType": "number" }],
+        "maxCardinality": 1,
+        "minCardinality": 1,
+        "iri": "did:ng:z:rate"
+      }
+    ]
+  },
+  "did:ng:z:MiruMediaAssetShape||did:ng:z:audio||did:ng:z:firstTimestamp": {
+    "iri": "did:ng:z:MiruMediaAssetShape||did:ng:z:audio||did:ng:z:firstTimestamp",
+    "predicates": [
+      {
+        "readablePredicate": "value",
+        "dataTypes": [{ "valType": "number" }],
+        "maxCardinality": 1,
+        "minCardinality": 1,
+        "iri": "did:ng:z:value"
+      },
+      {
+        "readablePredicate": "rate",
+        "dataTypes": [{ "valType": "number" }],
+        "maxCardinality": 1,
+        "minCardinality": 1,
+        "iri": "did:ng:z:rate"
+      }
+    ]
+  },
+  "did:ng:z:MiruVideoEffectAssetShape": {
+    "iri": "did:ng:z:MiruVideoEffectAssetShape",
+    "predicates": [
+      {
+        "readablePredicate": "@type",
+        "dataTypes": [{ "valType": "iri", "literals": ["did:ng:z:MiruVideoEffectAsset"] }],
+        "maxCardinality": 1,
+        "minCardinality": 1,
+        "iri": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+        "extra": true
+      },
+      {
+        "readablePredicate": "name",
+        "dataTypes": [{ "valType": "string" }],
+        "maxCardinality": 1,
+        "minCardinality": 1,
+        "iri": "did:ng:z:name"
+      }
+    ]
+  }
+}

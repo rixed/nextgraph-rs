@@ -2644,7 +2644,7 @@ INSERT DATA {
         let name_val = actual_obj[&k_alice]["name"].as_str().unwrap();
         assert!(name_val == "Alice" || name_val == "Alice-Scoped");
 
-        let mut expected = json!({
+        let  expected = json!({
             k_alice.clone(): {
                 "@id": "urn:test:groot:alice",
                 "@graph": g_alice,
@@ -2653,8 +2653,8 @@ INSERT DATA {
             }
         });
 
-        let mut actual_mut = orm_json.clone();
-        assert_json_eq(&mut expected, &mut actual_mut);
+        let  actual_mut = orm_json.clone();
+        assert_json_eq(&expected, &actual_mut);
         break;
     }
     cancel_fn();

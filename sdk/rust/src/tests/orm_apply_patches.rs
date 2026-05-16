@@ -11,7 +11,7 @@
 use crate::local_broker::{doc_create, doc_sparql_select, orm_update};
 use crate::tests::create_or_open_wallet::create_or_open_wallet;
 use crate::tests::{
-    assert_has_triples, assert_orm_json_eq, augment_expected_with_graph_fields,
+    assert_has_triples, assert_json_eq, assert_orm_json_eq, augment_expected_with_graph_fields,
     await_graph_patches, composite_key, create_doc_with_data, create_orm_connection,
     escape_pointer_segment, quad_has_graph, quads_to_string, rewrite_expected_paths_with_graph,
     root_path,
@@ -114,6 +114,7 @@ async fn test_orm_apply_patches() {
 
     // Test 23: Video Editor nested-nested patches
     test_nested_nested_object_creation(session_id).await;
+    test_nested_nested_object_creation2(session_id).await;
 
     // Test 24: Multi-valued link under non-root parent
     test_patch_multi_link_parent_not_root(session_id).await;
@@ -3780,7 +3781,6 @@ async fn test_nested_nested_object_creation(session_id: u64) {
             "type": "set",
             "value": ["did:ng:z:MiruMediaAssetVideo"]
         },
-
     ]);
 
     rewrite_expected_paths_with_graph(&mut patches, &doc_nuri);
@@ -3813,6 +3813,328 @@ async fn test_nested_nested_object_creation(session_id: u64) {
     assert_has_triples(session_id, expected, &doc_nuri).await;
 
     log_info!("✓ Test passed: Video Editor nested-nested patches");
+}
+
+async fn test_nested_nested_object_creation2(session_id: u64) {
+    log_info!("\n\n=== TEST: Video Editor 2 ===\n");
+
+    // Add one media asset and one video effect.
+    let doc_nuri = create_doc_with_data(
+        session_id,
+        r#"
+        PREFIX ex: <did:ng:z:>
+        INSERT DATA {
+        <urn:miru:doc1>
+            a <did:ng:z:MiruVideoDocument> ;
+            <did:ng:z:assets> <urn:miru:mediaAsset1> ;
+            <did:ng:z:assets> <urn:miru:videoEffect1> .
+
+        <urn:miru:mediaAsset1>
+            a <did:ng:z:MiruMediaAsset> ;
+            <did:ng:z:video> <urn:miru:mediaAsset1:video> ;
+            <did:ng:z:audio> <urn:miru:mediaAsset1:audio> .
+
+        <urn:miru:mediaAsset1:video>
+            <did:ng:z:duration> <urn:miru:mediaAsset1:video:duration> ;
+            <did:ng:z:frameRate> 30 .
+
+        <urn:miru:mediaAsset1:video:duration>
+            <did:ng:z:value> 300 ;
+            <did:ng:z:rate> 1 .
+
+        <urn:miru:mediaAsset1:audio>
+            <did:ng:z:codec> "aac" ;
+            <did:ng:z:duration> <urn:miru:mediaAsset1:audio:duration> ;
+            <did:ng:z:firstTimestamp> <urn:miru:mediaAsset1:audio:firstTimestamp> .
+
+        <urn:miru:mediaAsset1:audio:duration>
+            <did:ng:z:value> 300 ;
+            <did:ng:z:rate> 1 .
+
+        <urn:miru:mediaAsset1:audio:firstTimestamp>
+            <did:ng:z:value> 0 ;
+            <did:ng:z:rate> 1 .
+
+        <urn:miru:videoEffect1>
+            a <did:ng:z:MiruVideoEffectAsset> ;
+            <did:ng:z:name> "Glow" .
+        }
+        "#
+        .to_string(),
+    )
+    .await;
+
+    let video_document_schema = {
+        let schema_str = include_str!("video_schema.json");
+        serde_json::from_str(schema_str).unwrap()
+    };
+
+    let raw_schema: HashMap<String, OrmSchemaShape> =
+        serde_json::from_value(video_document_schema).expect("schema parse failed");
+    let schema = raw_schema
+        .into_iter()
+        .map(|(k, v)| (k, Arc::new(v)))
+        .collect();
+
+    let shape_type = OrmShapeType {
+        shape: "did:ng:z:MiruVideoDocumentShape".to_string(),
+        schema,
+    };
+
+    let (_receiver, _cancel_fn, subscription_id, initial) = create_orm_connection(
+        vec![doc_nuri.clone()],
+        vec![],
+        shape_type.clone(),
+        session_id,
+    )
+    .await;
+
+    let expected = json!({
+      format!("{doc_nuri}|urn:miru:doc1"): {
+        "@graph": doc_nuri,
+        "@id": "urn:miru:doc1",
+        "@type": "did:ng:z:MiruVideoDocument",
+        "assets": {
+          format!("{doc_nuri}|urn:miru:mediaAsset1"): {
+            "@graph": doc_nuri,
+            "@id": "urn:miru:mediaAsset1",
+            "@type": "did:ng:z:MiruMediaAsset",
+            "audio": {
+              "@graph": doc_nuri,
+              "@id": "urn:miru:mediaAsset1:audio",
+              "codec": "aac",
+              "duration": {
+                "@graph": doc_nuri,
+                "@id": "urn:miru:mediaAsset1:audio:duration",
+                "rate": 1.0,
+                "value": 300.0
+              },
+              "firstTimestamp": {
+                "@graph": doc_nuri,
+                "@id": "urn:miru:mediaAsset1:audio:firstTimestamp",
+                "rate": 1.0,
+                "value": 0.0
+              }
+            },
+            "video": {
+              "@graph": doc_nuri,
+              "@id": "urn:miru:mediaAsset1:video",
+              "duration": {
+                "@graph": doc_nuri,
+                "@id": "urn:miru:mediaAsset1:video:duration",
+                "rate": 1.0,
+                "value": 300.0
+              },
+              "frameRate": 30.0
+            }
+          },
+          format!("{doc_nuri}|urn:miru:videoEffect1"): {
+            "@graph": doc_nuri,
+            "@id": "urn:miru:videoEffect1",
+            "@type": "did:ng:z:MiruVideoEffectAsset",
+            "name": "Glow"
+          }
+        }
+      }
+    });
+    assert_json_eq(&expected, &initial);
+
+    let mut patches = json!([
+        {
+            "path": "/urn:miru:doc1/assets/urn:miru:mediaAsset2",
+            "op": "add", "value": {}
+        },
+        {
+            "path": "/urn:miru:doc1/assets/urn:miru:mediaAsset2/@id",
+            "op": "add", "value": "urn:miru:mediaAsset2"
+        },
+        {
+            "path": "/urn:miru:doc1/assets/urn:miru:mediaAsset2/@type",
+            "op": "add", "type": "set", "value": ["did:ng:z:MiruMediaAsset"]
+        },
+
+        {
+            "path": "/urn:miru:doc1/assets/urn:miru:mediaAsset2/audio",
+            "op": "add", "value": {}
+        },
+        {
+            "path": "/urn:miru:doc1/assets/urn:miru:mediaAsset2/audio/@id",
+            "op": "add", "value": "urn:miru:mediaAsset2:audio"
+        },
+        {
+            "path": "/urn:miru:doc1/assets/urn:miru:mediaAsset2/audio/codec",
+            "op": "add", "value": "opus"
+        },
+        {
+            "path": "/urn:miru:doc1/assets/urn:miru:mediaAsset2/audio/duration",
+            "op": "add", "value": {}
+        },
+        {
+            "path": "/urn:miru:doc1/assets/urn:miru:mediaAsset2/audio/duration/@id",
+            "op": "add", "value": "urn:miru:mediaAsset2:audio:duration"
+        },
+        {
+            "path": "/urn:miru:doc1/assets/urn:miru:mediaAsset2/audio/duration/value",
+            "op": "add", "value": 120.0
+        },
+        {
+            "path": "/urn:miru:doc1/assets/urn:miru:mediaAsset2/audio/duration/rate",
+            "op": "add", "value": 1.0
+        },
+        {
+            "path": "/urn:miru:doc1/assets/urn:miru:mediaAsset2/audio/firstTimestamp",
+            "op": "add", "value": {}
+        },
+        {
+            "path": "/urn:miru:doc1/assets/urn:miru:mediaAsset2/audio/firstTimestamp/@id",
+            "op": "add", "value": "urn:miru:mediaAsset2:audio:firstTimestamp"
+        },
+        {
+            "path": "/urn:miru:doc1/assets/urn:miru:mediaAsset2/audio/firstTimestamp/value",
+            "op": "add", "value": 0.0
+        },
+        {
+            "path": "/urn:miru:doc1/assets/urn:miru:mediaAsset2/audio/firstTimestamp/rate",
+            "op": "add", "value": 1.0
+        },
+
+        {
+            "path": "/urn:miru:doc1/assets/urn:miru:mediaAsset2/video",
+            "op": "add", "value": {}
+        },
+        {
+            "path": "/urn:miru:doc1/assets/urn:miru:mediaAsset2/video/@id",
+            "op": "add", "value": "urn:miru:mediaAsset2:video"
+        },
+        {
+            "path": "/urn:miru:doc1/assets/urn:miru:mediaAsset2/video/frameRate",
+            "op": "add", "value": 24.0
+        },
+        {
+            "path": "/urn:miru:doc1/assets/urn:miru:mediaAsset2/video/duration",
+            "op": "add", "value": {}
+        },
+        {
+            "path": "/urn:miru:doc1/assets/urn:miru:mediaAsset2/video/duration/@id",
+            "op": "add", "value": "urn:miru:mediaAsset2:video:duration"
+        },
+        {
+            "path": "/urn:miru:doc1/assets/urn:miru:mediaAsset2/video/duration/value",
+            "op": "add", "value": 120.0
+        },
+        {
+            "path": "/urn:miru:doc1/assets/urn:miru:mediaAsset2/video/duration/rate",
+            "op": "add", "value": 1.0
+        },
+    ]);
+
+    // Add another media asset.
+    rewrite_expected_paths_with_graph(&mut patches, &doc_nuri);
+    augment_expected_with_graph_fields(&mut patches, &doc_nuri);
+    let patches: Vec<OrmPatch> = serde_json::from_value(patches).expect("patches parsing failed");
+
+    orm_update(subscription_id, patches, session_id)
+        .await
+        .expect("orm_update failed");
+
+    // Create another ORM subscription so that we can compare the JSON objects.
+    let (_receiver2, _cancel_fn2, subscription_id2, initial2) = create_orm_connection(
+        vec![doc_nuri.clone()],
+        vec![],
+        shape_type.clone(),
+        session_id,
+    )
+    .await;
+
+    log_info!(
+        "Initial JSON: {}",
+        serde_json::to_string_pretty(&initial2).unwrap()
+    );
+
+    let expected2 = json!({
+      format!("{doc_nuri}|urn:miru:doc1"): {
+        "@graph": doc_nuri,
+        "@id": "urn:miru:doc1",
+        "@type": "did:ng:z:MiruVideoDocument",
+        "assets": {
+          format!("{doc_nuri}|urn:miru:mediaAsset1"): {
+            "@graph": doc_nuri,
+            "@id": "urn:miru:mediaAsset1",
+            "@type": "did:ng:z:MiruMediaAsset",
+            "audio": {
+              "@graph": doc_nuri,
+              "@id": "urn:miru:mediaAsset1:audio",
+              "codec": "aac",
+              "duration": {
+                "@graph": doc_nuri,
+                "@id": "urn:miru:mediaAsset1:audio:duration",
+                "rate": 1.0,
+                "value": 300.0
+              },
+              "firstTimestamp": {
+                "@graph": doc_nuri,
+                "@id": "urn:miru:mediaAsset1:audio:firstTimestamp",
+                "rate": 1.0,
+                "value": 0.0
+              }
+            },
+            "video": {
+              "@graph": doc_nuri,
+              "@id": "urn:miru:mediaAsset1:video",
+              "duration": {
+                "@graph": doc_nuri,
+                "@id": "urn:miru:mediaAsset1:video:duration",
+                "rate": 1.0,
+                "value": 300.0
+              },
+              "frameRate": 30.0
+            },
+        },
+        format!("{doc_nuri}|urn:miru:mediaAsset2"): {
+            "@graph": doc_nuri,
+            "@id": "urn:miru:mediaAsset2",
+            "@type": "did:ng:z:MiruMediaAsset",
+            "audio": {
+              "@graph": doc_nuri,
+              "@id": "urn:miru:mediaAsset2:audio",
+              "codec": "opus",
+              "duration": {
+                "@graph": doc_nuri,
+                "@id": "urn:miru:mediaAsset2:audio:duration",
+                "rate": 1.0,
+                "value": 120.0
+              },
+              "firstTimestamp": {
+                "@graph": doc_nuri,
+                "@id": "urn:miru:mediaAsset2:audio:firstTimestamp",
+                "rate": 1.0,
+                "value": 0.0
+              }
+            },
+            "video": {
+              "@graph": doc_nuri,
+              "@id": "urn:miru:mediaAsset2:video",
+              "duration": {
+                "@graph": doc_nuri,
+                "@id": "urn:miru:mediaAsset2:video:duration",
+                "rate": 1.0,
+                "value": 120.0
+              },
+              "frameRate": 24.0
+            }
+          },
+          format!("{doc_nuri}|urn:miru:videoEffect1"): {
+            "@graph": doc_nuri,
+            "@id": "urn:miru:videoEffect1",
+            "@type": "did:ng:z:MiruVideoEffectAsset",
+            "name": "Glow"
+          }
+        }
+      }
+    });
+    assert_json_eq(&expected2, &initial2);
+
+    log_info!("✓ Test passed: Video Editor 2");
 }
 
 async fn test_remove_root_object(session_id: u64) {

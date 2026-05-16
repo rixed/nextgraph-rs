@@ -140,7 +140,7 @@ The crates and packages are organized as follow :
         - [web](sdk/js/web/README.md) : the web version of the API in standalone/third-party mode
         - [lib-wasm](sdk/js/lib-wasm/DEV.md) : the WASM library used by api-web
         - [examples](sdk/js/DEV.md) : example for: web app, React/Svelte app, or node service
-        - alien-deepsignals, shex-orm and signals : used by the ORM mechanism
+        - alien-deepsignals, shex-orm and orm : used by the ORM mechanism
     - [rust](sdk/rust/README.md) : Client library. Use this crate to embed NextGraph client in your Rust application
     - [python](sdk/python/README.md) : contains the Python SDK.
 

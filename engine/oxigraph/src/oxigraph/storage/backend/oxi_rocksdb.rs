@@ -489,7 +489,16 @@ impl Db {
                 UnsafeEnv(env)
             } else {
                 let env = match key {
-                    Some(_) => rocksdb_create_encrypted_env(opt_bytes_to_ptr(key.as_ref())),
+                    Some(_) => {
+                        #[cfg(feature = "at-rest-encryption")]
+                        {
+                            rocksdb_create_encrypted_env(opt_bytes_to_ptr(key.as_ref()))
+                        }
+                        #[cfg(not(feature = "at-rest-encryption"))]
+                        {
+                            rocksdb_create_default_env()
+                        }
+                    }
                     None => rocksdb_create_default_env(),
                 };
                 assert!(!env.is_null(), "rocksdb_create_encrypted_env returned null");

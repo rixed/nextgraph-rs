@@ -76,7 +76,17 @@ impl RocksDbBlockStorage {
         block_based_opts.set_format_version(6);
         opts.set_block_based_table_factory(&block_based_opts);
 
-        let env = Env::enc_env(key).unwrap();
+        #[cfg(feature = "at-rest-encryption")]
+        let env = {
+            log_debug!("Opening an encrypted store");
+            Env::enc_env(key).unwrap()
+        };
+        #[cfg(not(feature = "at-rest-encryption"))]
+        let env = {
+            log_debug!("Opening a non-ecrypted store");
+            Env::new().unwrap()
+        };
+
         opts.set_env(&env);
         let tx_options = TransactionDBOptions::new();
         let db: TransactionDB = TransactionDB::open(&opts, &tx_options, &path).map_err(|e| {

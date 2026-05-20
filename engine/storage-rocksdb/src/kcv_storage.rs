@@ -832,7 +832,17 @@ impl RocksDbKCVStorage {
         block_based_opts.set_format_version(6);
         opts.set_block_based_table_factory(&block_based_opts);
 
-        let env = Env::enc_env(key).unwrap();
+        #[cfg(feature = "at-rest-encryption")]
+        let env = {
+            log_debug!("Opening an encrypted store");
+            Env::enc_env(key).unwrap()
+        };
+        #[cfg(not(feature = "at-rest-encryption"))]
+        let env = {
+            log_debug!("Opening a non-ecrypted store");
+            Env::new().unwrap()
+        };
+
         opts.set_env(&env);
 
         // TODO: use open_cf and choose which column family to create/ versus using set_prefix_extractor and doing prefix seek

@@ -1,1 +1,2 @@
+// base64-url encoded serde serialization of a PubKey
 pub const PEER_ID: &str = "FtdzuDYGewfXWdoPuXIPb0wnd0SAg1WoA2B14S7jW3MA";

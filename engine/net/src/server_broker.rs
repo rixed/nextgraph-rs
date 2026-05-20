@@ -158,4 +158,12 @@ pub trait IServerBroker: Send + Sync {
         target_heads: &Vec<ObjectId>,
         known_commits: &Option<BloomFilter>,
     ) -> Result<Vec<TopicSyncRes>, ServerError>;
+
+    fn usage_stats(&self, user_id: &UserId) -> Result<UsageStats, ProtocolError>;
+
+    fn usage_stats_update_for_user(
+        &self,
+        user_id: &UserId,
+        stats: &NetStats,
+    ) -> Result<(), ServerError>;
 }

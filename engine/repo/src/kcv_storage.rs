@@ -1125,4 +1125,6 @@ pub trait KCVStorage: WriteTransaction {
     //     suffix: Option<u8>,
     //     value: Vec<u8>,
     // ) -> Result<(), StorageError>;
+
+    fn storage_size(&self) -> Result<u64, StorageError>;
 }

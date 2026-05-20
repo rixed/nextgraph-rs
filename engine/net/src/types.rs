@@ -2823,6 +2823,7 @@ pub enum AdminRequestContentV0 {
     AddInvitation(AddInvitation),
     #[doc(hidden)]
     CreateUser(CreateUser),
+    RequestUsageStats(RequestUsageStats),
 }
 impl AdminRequestContentV0 {
     pub fn type_id(&self) -> TypeId {
@@ -2833,6 +2834,7 @@ impl AdminRequestContentV0 {
             Self::ListInvitations(a) => a.type_id(),
             Self::AddInvitation(a) => a.type_id(),
             Self::CreateUser(a) => a.type_id(),
+            Self::RequestUsageStats(a) => a.type_id(),
         }
     }
     pub fn get_actor(&self) -> Box<dyn EActor> {
@@ -2843,6 +2845,7 @@ impl AdminRequestContentV0 {
             Self::ListInvitations(a) => a.get_actor(),
             Self::AddInvitation(a) => a.get_actor(),
             Self::CreateUser(a) => a.get_actor(),
+            Self::RequestUsageStats(a) => a.get_actor(),
         }
     }
 }
@@ -2928,6 +2931,7 @@ pub enum AdminResponseContentV0 {
     Invitations(Vec<(InvitationCode, u32, Option<String>)>),
     Invitation(Invitation),
     UserId(UserId),
+    UsageStats(UsageStats),
 }
 
 /// Response to an `AdminRequest` V0
@@ -3001,6 +3005,25 @@ impl From<Result<Vec<PubKey>, ProtocolError>> for AdminResponseV0 {
     }
 }
 
+impl From<Result<UsageStats, ProtocolError>> for AdminResponseV0 {
+    fn from(res: Result<UsageStats, ProtocolError>) -> AdminResponseV0 {
+        match res {
+            Err(e) => AdminResponseV0 {
+                id: 0,
+                result: e.into(),
+                content: AdminResponseContentV0::EmptyResponse,
+                padding: vec![],
+            },
+            Ok(stats) => AdminResponseV0 {
+                id: 0,
+                result: 0,
+                content: AdminResponseContentV0::UsageStats(stats),
+                padding: vec![],
+            },
+        }
+    }
+}
+
 impl From<AdminResponseV0> for ProtocolMessage {
     fn from(msg: AdminResponseV0) -> ProtocolMessage {
         ProtocolMessage::AdminResponse(AdminResponse::V0(msg))
@@ -3046,6 +3069,52 @@ impl AdminResponse {
         match self {
             Self::V0(o) => o.content.clone(),
         }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+/// usage statistics for a given user
+pub struct UsageStats {
+    pub net: NetStats,
+    pub storage: StorageStats,
+    pub last_seen: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NetStats {
+    pub ingress: u64,
+    pub egress: u64,
+}
+
+impl NetStats {
+    pub fn new() -> Self {
+        Self {
+            ingress: 0u64,
+            egress: 0u64,
+        }
+    }
+    pub fn add(&mut self, stats: &Self) {
+        self.ingress += stats.ingress;
+        self.egress += stats.egress;
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StorageStats {
+    pub current: u64,
+    pub max: u64,
+}
+
+impl StorageStats {
+    pub fn new() -> Self {
+        StorageStats {
+            current: 0u64,
+            max: 0u64,
+        }
+    }
+    pub fn update(&mut self, current: u64) {
+        self.current = current;
+        self.max = std::cmp::max(self.max, current);
     }
 }
 

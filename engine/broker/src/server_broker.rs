@@ -498,6 +498,10 @@ impl IServerBroker for ServerBroker {
     fn remove_invitation(&self, invite_code: [u8; 32]) -> Result<(), ProtocolError> {
         self.storage.remove_invitation(invite_code)
     }
+    fn usage_stats(&self, user: &UserId) -> Result<UsageStats, ProtocolError> {
+        // Call RocksDbServerStorage::usage_stats which will call Account::usage_stats:
+        self.storage.usage_stats(user)
+    }
 
     async fn app_process_request(
         &self,
@@ -900,5 +904,16 @@ impl IServerBroker for ServerBroker {
     ) -> Result<Vec<TopicSyncRes>, ServerError> {
         self.storage
             .topic_sync_req(overlay, topic, known_heads, target_heads, known_commits)
+    }
+
+    fn usage_stats_update_for_user(
+        &self,
+        user_id: &UserId,
+        stats: &NetStats,
+    ) -> Result<(), ServerError> {
+        log_debug!("Accumulating net stats for user {}: {:?}", user_id, stats);
+        self.storage
+            .usage_stats_update_for_user(user_id, stats)
+            .map_err(Into::into)
     }
 }

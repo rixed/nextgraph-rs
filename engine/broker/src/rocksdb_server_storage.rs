@@ -779,4 +779,19 @@ impl RocksDbServerStorage {
 
         Ok(result)
     }
+
+    pub(crate) fn usage_stats(&self, user_id: &UserId) -> Result<UsageStats, ProtocolError> {
+        let acc = Account::open(&user_id, &self.accounts_storage)?;
+        let stats = acc.usage_stats()?;
+        Ok(stats)
+    }
+
+    pub(crate) fn usage_stats_update_for_user(
+        &self,
+        user_id: &UserId,
+        net_stats: &NetStats,
+    ) -> Result<(), StorageError> {
+        let acc = Account::open(&user_id, &self.accounts_storage)?;
+        acc.usage_stats_update(net_stats)
+    }
 }

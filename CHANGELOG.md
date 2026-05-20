@@ -138,6 +138,12 @@ Access the sub-sections directly :
 
 ## Broker
 
+### Broker [0.1.2] - ?
+
+#### Added
+
+-   AdminProtocol : UsageStats
+
 ### Broker [0.1.1-alpha] - 2024-09-02
 
 ### Broker [0.1.0-preview.8] - 2024-08-21

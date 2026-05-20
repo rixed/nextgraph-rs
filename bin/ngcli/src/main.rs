@@ -306,6 +306,10 @@ async fn main_inner() -> Result<(), NgcliError> {
                             .arg(arg!(-a --admin "only lists admin invitations").required(false))
                             .arg(arg!(-m --multi "only lists multiple-use invitations").required(false))
                             .arg(arg!(-u --unique "only lists unique-use invitations").required(false)))
+                    .subcommand(
+                        Command::new("usage-stats")
+                            .about("Get usage statistics for a given user")
+                            .arg(arg!(<USER_ID> "userId if the user whose statistics to print").required(true)))
             )
             .subcommand(
                 Command::new("gen-key")
@@ -740,7 +744,7 @@ async fn main_inner() -> Result<(), NgcliError> {
             + Send
             + 'static,
     >(
-        privk: [u8; 32],
+        privk: [u8; 32], // local broker private peer id
         config_v0: &CliConfigV0,
         cmd: A,
     ) -> Result<AdminResponseContentV0, ProtocolError> {
@@ -929,6 +933,22 @@ async fn main_inner() -> Result<(), NgcliError> {
                     }
                     _ => return Err(NgError::InvalidResponse.into()),
                 }
+                return Ok(());
+            }
+            Some(("usage-stats", sub2_matches)) => {
+                let user = sub2_matches
+                    .get_one::<String>("USER_ID")
+                    .unwrap()
+                    .as_str()
+                    .try_into()
+                    .map_err(|_| NgcliError::OtherConfigErrorStr("supplied USER_ID is invalid"))?;
+                let res = do_admin_call(
+                    keys[1],
+                    config_v0,
+                    RequestUsageStats::V0(RequestUsageStatsV0 { user }),
+                )
+                .await?;
+                println!("Usage statistics for user {}:\n{:#?}", user, res);
                 return Ok(());
             }
             _ => panic!("shouldn't happen"),

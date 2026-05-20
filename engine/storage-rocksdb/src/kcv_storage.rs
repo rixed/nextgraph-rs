@@ -476,6 +476,23 @@ impl KCVStorage for RocksDbKCVStorage {
         }
         res
     }
+
+    /// Returns a quick estimate of current storage size
+    fn storage_size(&self) -> Result<u64, StorageError> {
+        const PROPERTY: &str = "rocksdb.live-sst-files-size";
+        match self.db.property_int_value(PROPERTY) {
+            Ok(Some(v)) =>
+                Ok(v),
+            Ok(None) => {
+                log_warn!("No such rocksdb property: {}", PROPERTY);
+                Err(StorageError::BackendError)
+            },
+            Err(e) => {
+                log_warn!("Cannot read rocksdb property {}: {}", PROPERTY, e);
+                Err(StorageError::BackendError)
+            }
+        }
+    }
 }
 
 impl WriteTransaction for RocksDbKCVStorage {

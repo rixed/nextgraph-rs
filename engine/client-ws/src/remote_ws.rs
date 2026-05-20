@@ -11,6 +11,8 @@
 
 //! WebSocket Remote Connection to a Broker
 
+use async_std::io::{Read, Write};
+use async_std::net::TcpStream;
 use async_std::task;
 use either::Either;
 use futures::{pin_mut, select, StreamExt};
@@ -20,6 +22,10 @@ use ng_async_tungstenite::{
     tungstenite::{protocol::frame::coding::CloseCode, protocol::CloseFrame, Message},
     WebSocketStream,
 };
+use std::io::Error;
+use std::pin::Pin;
+use std::sync::{Arc, Mutex};
+use std::task::{Context, Poll};
 
 use ng_repo::errors::*;
 use ng_repo::log::*;
@@ -115,10 +121,70 @@ impl IConnect for ConnectionWebSocket {
     }
 }
 
+pub struct MeteredTcpStream {
+    inner: TcpStream,
+    pub stats: Arc<Mutex<NetStats>>,
+}
+
+impl MeteredTcpStream {
+    pub fn new(inner: TcpStream) -> Self {
+        Self {
+            inner,
+            stats: Arc::new(Mutex::new(NetStats::new())),
+        }
+    }
+
+    pub fn dump(self: &Self) {
+        //log_debug!("MeteredTcp: now {:?}", self.stats)
+    }
+}
+
+impl Read for MeteredTcpStream {
+    fn poll_read(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut [u8],
+    ) -> Poll<Result<usize, Error>> {
+        let mut pinned = std::pin::pin!(&self.inner);
+        let res = pinned.as_mut().poll_read(cx, buf);
+        match res {
+            Poll::Ready(Ok(bytes_in)) => self.stats.lock().unwrap().ingress += bytes_in as u64,
+            _ => (),
+        };
+        self.dump();
+        res
+    }
+}
+
+impl Write for MeteredTcpStream {
+    fn poll_write(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<Result<usize, Error>> {
+        let mut pinned = std::pin::pin!(&self.inner);
+        let res = pinned.as_mut().poll_write(cx, buf);
+        match res {
+            Poll::Ready(Ok(bytes_out)) => self.stats.lock().unwrap().egress += bytes_out as u64,
+            _ => (),
+        };
+        self.dump();
+        res
+    }
+    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Error>> {
+        let mut pinned = std::pin::pin!(&self.inner);
+        pinned.as_mut().poll_flush(cx)
+    }
+    fn poll_close(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Error>> {
+        let mut pinned = std::pin::pin!(&self.inner);
+        pinned.as_mut().poll_close(cx)
+    }
+}
+
 #[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
 impl IAccept for ConnectionWebSocket {
-    type Socket = WebSocketStream<ConnectStream>;
+    type Socket = WebSocketStream<ConnectStream<MeteredTcpStream>>;
     async fn accept(
         &self,
         remote_bind_address: BindAddress,
@@ -130,8 +196,8 @@ impl IAccept for ConnectionWebSocket {
 
         cnx.start_read_loop(
             Some((local_bind_address, remote_bind_address)),
-            Some(peer_privk),
-            None,
+            Some(peer_privk), // local
+            None,             // remote
         );
         let s = cnx.take_sender();
         let r = cnx.take_receiver();
@@ -153,8 +219,8 @@ impl IAccept for ConnectionWebSocket {
     }
 }
 
-async fn close_ws(
-    stream: &mut WebSocketStream<ConnectStream>,
+async fn close_ws<S: async_std::io::Read + async_std::io::Write + Unpin>(
+    stream: &mut WebSocketStream<ConnectStream<S>>,
     receiver: &mut Sender<ConnectionCommand>,
     code: u16,
     reason: &str,
@@ -183,16 +249,24 @@ async fn close_ws(
     Ok(())
 }
 
-async fn ws_loop(
-    mut ws: WebSocketStream<ConnectStream>,
+async fn ws_loop<S: async_std::io::Read + async_std::io::Write + Unpin>(
+    mut ws: WebSocketStream<ConnectStream<S>>,
     sender: Receiver<ConnectionCommand>,
     mut receiver: Sender<ConnectionCommand>,
-) -> Result<(), NetError> {
-    async fn inner_loop(
-        stream: &mut WebSocketStream<ConnectStream>,
+) -> Result<(), NetError>
+where
+    WebSocketStream<ConnectStream<S>>:
+        futures::Stream<Item = Result<Message, ng_async_tungstenite::tungstenite::Error>>,
+{
+    async fn inner_loop<S: async_std::io::Read + async_std::io::Write + Unpin>(
+        stream: &mut WebSocketStream<ConnectStream<S>>,
         mut sender: Receiver<ConnectionCommand>,
         receiver: &mut Sender<ConnectionCommand>,
-    ) -> Result<ProtocolError, NetError> {
+    ) -> Result<ProtocolError, NetError>
+    where
+        WebSocketStream<ConnectStream<S>>:
+            futures::Stream<Item = Result<Message, ng_async_tungstenite::tungstenite::Error>>,
+    {
         //let mut rx_sender = sender.fuse();
         pin_mut!(stream);
         loop {

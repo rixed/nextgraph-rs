@@ -856,6 +856,7 @@ impl NoiseFSM {
                                     return Err(result);
                                 } else {
                                     self.state = FSMstate::Closing;
+                                    self.set_user_id(req.admin_user);
                                     return Ok(StepReply::Responder(msg_opt.unwrap()));
                                 }
                             }
@@ -1079,7 +1080,7 @@ impl NoiseFSM {
 
 #[derive(Debug)]
 pub struct ConnectionBase {
-    pub(crate) fsm: Option<Arc<Mutex<NoiseFSM>>>,
+    pub fsm: Option<Arc<Mutex<NoiseFSM>>>,
 
     sender: Option<Receiver<ConnectionCommand>>,
     receiver: Option<Sender<ConnectionCommand>>,

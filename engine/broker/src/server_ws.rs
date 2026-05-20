@@ -17,6 +17,7 @@ use std::io::Read;
 use std::net::IpAddr;
 use std::net::SocketAddr;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use futures::StreamExt;
 use ng_async_tungstenite::tungstenite::http::header::REFERER;
@@ -45,7 +46,7 @@ use ng_net::types::*;
 use ng_net::utils::{is_private_ip, is_public_ip};
 use ng_net::NG_BOOTSTRAP_LOCAL_PATH;
 
-use ng_client_ws::remote_ws::ConnectionWebSocket;
+use ng_client_ws::remote_ws::{ConnectionWebSocket, MeteredTcpStream};
 
 use crate::interfaces::*;
 use crate::rocksdb_server_storage::RocksDbServerStorage;
@@ -713,6 +714,9 @@ pub async fn accept(tcp: TcpStream, peer_priv_key: PrivKey) {
     let local_addr = tcp.local_addr().unwrap();
     let local_bind_address: BindAddress = (&local_addr).into();
 
+    let tcp = MeteredTcpStream::new(tcp);
+    // Keep a copy of those stats for the accept function
+    let stats = Arc::clone(&tcp.stats);
     let ws = accept_hdr_async(
         tcp,
         SecurityCallback::new(remote_bind_address, local_bind_address),
@@ -736,13 +740,14 @@ pub async fn accept(tcp: TcpStream, peer_priv_key: PrivKey) {
         .await
         .unwrap();
 
-    let res = BROKER
-        .write()
-        .await
-        .accept(base, remote_bind_address, local_bind_address)
-        .await;
-    if res.is_err() {
-        log_warn!("Accept error: {:?}", res.unwrap_err());
+    {
+        let mut sb = BROKER.write().await;
+        let res = sb
+            .accept(base, remote_bind_address, local_bind_address, stats)
+            .await;
+        if res.is_err() {
+            log_warn!("Accept error: {:?}", res.unwrap_err());
+        }
     }
 }
 

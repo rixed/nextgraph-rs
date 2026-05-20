@@ -38,21 +38,37 @@ impl<'a> fmt::Debug for Account<'a> {
 }
 
 impl<'a> Account<'a> {
+    // Account keys: PREFIX_ACCOUNT + account_id (aka user_id) + account suffix
     const PREFIX_ACCOUNT: u8 = b'a';
+    /* Client keys:
+     * - PREFIX_CLIENT + account_id + client_id
+     * - OR PREFIX_CLIENT_PROPERTY + account_id + client_id + client prop suffix */
     const PREFIX_CLIENT: u8 = b'c';
     const PREFIX_CLIENT_PROPERTY: u8 = b'd';
 
-    // propertie's client suffixes
+    // clients' properties suffixes
     const INFO: u8 = b'i';
     const LAST_SEEN: u8 = b'l';
-    const CREDENTIALS: u8 = b'c';
     //const USER_KEYS: u8 = b'k';
+    // accounts' properties suffixes
+    const ADMIN: u8 = b'a'; // value = boolean (admin or not)
+    const CREDENTIALS: u8 = b'c';
+    const STATS_NET: u8 = b'n';  // value = NetStats
+    const STATS_STORAGE: u8 = b's';  // value = StorageStats
+    const STATS_LAST_SEEN: u8 = b'l';  // value = i64
 
-    const ALL_CLIENT_PROPERTIES: [u8; 3] = [
+    const ALL_CLIENT_PROPERTIES: [u8; 2] = [
         Self::INFO,
         Self::LAST_SEEN,
-        Self::CREDENTIALS,
         //Self::USER_KEYS,
+    ];
+
+    const ALL_ACCOUNT_PROPERTIES: [u8; 5] = [
+        Self::ADMIN,
+        Self::CREDENTIALS,
+        Self::STATS_NET,
+        Self::STATS_STORAGE,
+        Self::STATS_LAST_SEEN,
     ];
 
     pub fn open(id: &UserId, storage: &'a dyn KCVStorage) -> Result<Account<'a>, StorageError> {
@@ -61,6 +77,7 @@ impl<'a> Account<'a> {
             storage,
         };
         if !opening.exists() {
+            log_err!("Account::open: no account for {}", id);
             return Err(StorageError::NotFound);
         }
         Ok(opening)
@@ -80,7 +97,7 @@ impl<'a> Account<'a> {
         storage.put(
             Self::PREFIX_ACCOUNT,
             &to_vec(&id)?,
-            None,
+            Some(Self::ADMIN),
             &to_vec(&admin)?,
             &None,
         )?;
@@ -93,13 +110,16 @@ impl<'a> Account<'a> {
         storage: &'a dyn KCVStorage,
     ) -> Result<Vec<UserId>, StorageError> {
         let size = to_vec(&UserId::nil())?.len();
-        let mut res: Vec<UserId> = vec![];
+        let mut res = Vec::new();
         for user in
-            storage.get_all_keys_and_values(Self::PREFIX_ACCOUNT, size, vec![], None, &None)?
+            storage.get_all_keys_and_values(Self::PREFIX_ACCOUNT, size, vec![], Some(Self::ADMIN), &None)?
         {
+            // Because of the slice below:
+            // FIXME: get_all_keys_and_values should return opt prefix, key and opt suffix
+            assert!(user.0.len() >= 2, "Account key must have at least 2 chars, got {}", user.0.len());
             let admin: bool = from_slice(&user.1)?;
             if admin == admins {
-                let id: UserId = from_slice(&user.0[1..user.0.len()])?;
+                let id: UserId = from_slice(&user.0[1..user.0.len()-1])?;
                 res.push(id);
             }
         }
@@ -111,7 +131,7 @@ impl<'a> Account<'a> {
         let mut res: Vec<UserId> = vec![];
         //TODO: fix this. we shouldn't have to fetch all the users to know if there is at least one user. highly inefficient. need to add a storage.has_one_key_value method
         Ok(!storage
-            .get_all_keys_and_values(Self::PREFIX_ACCOUNT, size, vec![], None, &None)?
+            .get_all_keys_and_values(Self::PREFIX_ACCOUNT, size, vec![], Some(Self::ADMIN), &None)?
             .is_empty())
     }
 
@@ -120,7 +140,7 @@ impl<'a> Account<'a> {
             .get(
                 Self::PREFIX_ACCOUNT,
                 &to_vec(&self.id).unwrap(),
-                None,
+                Some(Self::ADMIN),
                 &None,
             )
             .is_ok()
@@ -274,7 +294,7 @@ impl<'a> Account<'a> {
             .has_property_value(
                 Self::PREFIX_ACCOUNT,
                 &to_vec(&self.id)?,
-                None,
+                Some(Self::ADMIN),
                 &to_vec(&true)?,
                 &None,
             )
@@ -309,8 +329,156 @@ impl<'a> Account<'a> {
                     )?;
                 }
             }
-            tx.del(Self::PREFIX_ACCOUNT, &to_vec(&self.id)?, None, &None)?;
+            tx.del_all(
+                Self::PREFIX_ACCOUNT,
+                &to_vec(&self.id)?,
+                &Self::ALL_ACCOUNT_PROPERTIES,
+                &None)?;
             Ok(())
+        })
+    }
+
+    /* Read the network stats for that user. Since it is already known that
+     * the user exists (we have the Account), we can assume 0 if the key is
+     * not found. */
+    fn usage_stats_unwrap<T: serde::de::DeserializeOwned>(
+        &self,
+        ser: Result<Vec<u8>, StorageError>,
+        default: T,
+    ) -> Result<T, StorageError> {
+        match ser {
+            Ok(bytes) => from_slice(&bytes).map_err(Into::into),
+            Err(StorageError::NotFound) => Ok(default),
+            Err(e) => Err(e),
+        }
+    }
+
+    fn usage_stats_net_unwrap(
+        &self,
+        ser: Result<Vec<u8>, StorageError>,
+    ) -> Result<NetStats, StorageError> {
+        self.usage_stats_unwrap(ser, NetStats::new())
+    }
+
+    fn usage_stats_storage_unwrap(
+        &self,
+        ser: Result<Vec<u8>, StorageError>,
+    ) -> Result<StorageStats, StorageError> {
+        self.usage_stats_unwrap(ser, StorageStats::new())
+    }
+
+    fn usage_stats_last_seen_unwrap(
+        &self,
+        ser: Result<Vec<u8>, StorageError>,
+    ) -> Result<i64, StorageError> {
+        self.usage_stats_unwrap(ser, 0i64)
+    }
+
+    // Get net stats for that account
+    fn usage_stats_net(&self) -> Result<NetStats, StorageError> {
+        let id = to_vec(&self.id)?;
+        let ser = self
+            .storage
+            .get(Self::PREFIX_ACCOUNT, &id, Some(Self::STATS_NET), &None);
+        Ok(self.usage_stats_net_unwrap(ser)?)
+    }
+
+    pub fn usage_stats_net_add(&self, stats: &NetStats) -> Result<(), StorageError> {
+        let id = to_vec(&self.id)?;
+        self.storage.write_transaction(&mut |tx| {
+            let ser = tx.get(Self::PREFIX_ACCOUNT, &id, Some(Self::STATS_NET), &None);
+            let mut current = self.usage_stats_net_unwrap(ser)?;
+            current.add(stats);
+            log_debug!(
+                "Account::usage_stats_net_add {:#?} for {} → {:#?}",
+                stats,
+                self.id,
+                &current
+            );
+            tx.put(
+                Self::PREFIX_ACCOUNT,
+                &id,
+                Some(Self::STATS_NET),
+                &to_vec(&current)?,
+                &None,
+            )
+        })
+    }
+
+    fn usage_stats_storage(&self) -> Result<StorageStats, StorageError> {
+        let id = to_vec(&self.id)?;
+        let ser = self
+            .storage
+            .get(Self::PREFIX_ACCOUNT, &id, Some(Self::STATS_STORAGE), &None);
+        Ok(self.usage_stats_storage_unwrap(ser)?)
+    }
+
+    pub fn usage_stats_storage_update(&self) -> Result<(), StorageError> {
+        let sz = self.storage.storage_size()?;
+        let id = to_vec(&self.id)?;
+        self.storage.write_transaction(&mut |tx| {
+            let ser = tx.get(Self::PREFIX_ACCOUNT, &id, Some(Self::STATS_STORAGE), &None);
+            let mut current = self.usage_stats_storage_unwrap(ser)?;
+            current.update(sz);
+            log_debug!(
+                "Account::usage_stats_storage_update size {} for {} → {:#?}",
+                sz,
+                self.id,
+                &current
+            );
+            tx.put(
+                Self::PREFIX_ACCOUNT,
+                &id,
+                Some(Self::STATS_STORAGE),
+                &to_vec(&current)?,
+                &None,
+            )
+        })
+    }
+
+    fn usage_stats_last_seen(&self) -> Result<i64, StorageError> {
+        let id = to_vec(&self.id)?;
+        let ser = self
+            .storage
+            .get(Self::PREFIX_ACCOUNT, &id, Some(Self::STATS_LAST_SEEN), &None);
+        Ok(self.usage_stats_last_seen_unwrap(ser)?)
+    }
+
+    pub fn usage_stats_touch(&self) -> Result<(), StorageError> {
+        let now = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        let id = to_vec(&self.id)?;
+        self.storage.write_transaction(&mut |tx| {
+            let ser = tx.get(Self::PREFIX_ACCOUNT, &id, Some(Self::STATS_LAST_SEEN), &None);
+            log_debug!(
+                "Account::usage_stats_touch for {} → {:#?}",
+                self.id,
+                &now
+            );
+            tx.put(
+                Self::PREFIX_ACCOUNT,
+                &id,
+                Some(Self::STATS_LAST_SEEN),
+                &to_vec(&now)?,
+                &None,
+            )
+        })
+    }
+
+    pub fn usage_stats_update(&self, stats: &NetStats) -> Result<(), StorageError> {
+        self.usage_stats_net_add(stats)?;
+        self.usage_stats_storage_update()?;
+        self.usage_stats_touch()
+    }
+
+    // Get stats for that account
+    pub fn usage_stats(&self) -> Result<UsageStats, StorageError> {
+        Ok(UsageStats {
+            net: self.usage_stats_net()?,
+            storage: self.usage_stats_storage()?,
+            last_seen: self.usage_stats_last_seen()?,
         })
     }
 }

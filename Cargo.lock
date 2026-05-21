@@ -3672,7 +3672,6 @@ dependencies = [
 [[package]]
 name = "ng-async-tungstenite"
 version = "0.22.2"
-source = "git+https://git.nextgraph.org/NextGraph/async-tungstenite.git?branch=nextgraph#84fcc9e457f7686afcec0e6068819f482c0afa8c"
 dependencies = [
  "async-native-tls",
  "async-std",
@@ -3831,7 +3830,6 @@ dependencies = [
 [[package]]
 name = "ng-rocksdb"
 version = "0.21.0-ngpreview.8"
-source = "git+https://git.nextgraph.org/NextGraph/rust-rocksdb.git?branch=master#d21a1b4ae64f7025d2b8be7f70f4e1a2562113c2"
 dependencies = [
  "bindgen",
  "bzip2-sys",
@@ -3867,7 +3865,6 @@ dependencies = [
 [[package]]
 name = "ng-tungstenite"
 version = "0.19.0"
-source = "git+https://git.nextgraph.org/NextGraph/tungstenite-rs.git?branch=nextgraph#3e9aa12cf32313b944fee1ef4128591f4346013a"
 dependencies = [
  "byteorder",
  "bytes",

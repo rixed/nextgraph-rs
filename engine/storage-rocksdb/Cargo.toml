@@ -17,7 +17,7 @@ serde_bare = "0.5.0"
 ng-repo = { path = "../repo", version = "0.1.2" }
 
 [features]
-default = ["at-rest-encryption"]
+#default = ["at-rest-encryption"]
 at-rest-encryption = []
 
 [target.'cfg(all(not(target_arch = "wasm32"),not(docsrs)))'.dependencies.ng-rocksdb]

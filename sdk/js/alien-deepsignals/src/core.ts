@@ -14,6 +14,7 @@ import {
     computed as alienComputed,
     signal as alienSignal_,
     effect as alienEffect,
+    effectScope as alienEffectScope,
 } from "alien-signals";
 
 /**
@@ -105,3 +106,8 @@ export const alienSignal = alienSignal_;
  *
  */
 export const effect = alienEffect;
+
+/**
+ * Re-export of alien-signals [effectScope function](https://github.com/stackblitz/alien-signals#effect-scope).
+ */
+export const effectScope = alienEffectScope;

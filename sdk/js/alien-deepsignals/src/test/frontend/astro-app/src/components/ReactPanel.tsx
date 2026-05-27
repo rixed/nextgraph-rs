@@ -9,10 +9,13 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import React, { useEffect, useMemo, useRef } from "react";
-import useDeepSignal from "../../../../../hooks/react/useDeepSignal";
-import { sharedState } from "../../../utils/state";
-import { recordRender, recordObjectRender } from "../../../utils/renderMetrics";
-import type { TaggedObject } from "../../../utils/mockData";
+import useDeepSignal from "../../../../../hooks/react/useDeepSignal.ts";
+import { sharedState } from "../../../utils/state.ts";
+import {
+    recordRender,
+    recordObjectRender,
+} from "../../../utils/renderMetrics.ts";
+import type { TaggedObject } from "../../../utils/mockData.ts";
 
 const ReactPanel: React.FC = () => {
     const state = useDeepSignal(sharedState);

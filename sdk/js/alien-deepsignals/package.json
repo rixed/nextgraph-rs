@@ -10,6 +10,7 @@
   "files": [
     "dist"
   ],
+  "type": "module",
   "main": "src/index.ts",
   "publishConfig": {
     "access": "public",

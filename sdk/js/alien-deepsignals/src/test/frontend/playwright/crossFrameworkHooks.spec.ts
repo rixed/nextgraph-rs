@@ -9,7 +9,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import { test, expect, Page } from "@playwright/test";
-import { mockTestObject, type TaggedObject } from "../utils/mockData";
+import { mockTestObject, type TaggedObject } from "../utils/mockData.ts";
 
 const frameworks = ["react", "vue", "svelte", "svelte4"] as const;
 type Framework = (typeof frameworks)[number];

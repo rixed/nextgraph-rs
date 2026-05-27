@@ -16,8 +16,8 @@ import {
     DeepSignalOptions,
     deepSignal,
     UnwrapDeepSignal,
-} from "../../index";
-import { getDeepSignalRootId, getDeepSignalVersion } from "../../deepSignal";
+} from "../../index.ts";
+import { getDeepSignalRootId, getDeepSignalVersion } from "../../deepSignal.ts";
 
 /** Base result contract for a deepSignal-backed Svelte integration. */
 export interface UseDeepSignalResult<T> extends Readable<T> {

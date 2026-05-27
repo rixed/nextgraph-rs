@@ -13,14 +13,14 @@ import {
     getDeepSignalVersion,
     isDeepSignal,
     subscribeDeepMutations,
-} from "./deepSignal";
+} from "./deepSignal.ts";
 import {
     DeepPatch,
     DeepPatchBatch,
     DeepSignal,
     DeepSignalObject,
     DeepSignalSet,
-} from "./types";
+} from "./types.ts";
 
 export type RegisterCleanup = (cleanupFn: () => void) => void;
 

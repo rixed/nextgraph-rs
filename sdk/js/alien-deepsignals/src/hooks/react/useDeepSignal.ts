@@ -10,7 +10,7 @@
 
 import { watch } from "../../watch.js";
 import { useCallback, useMemo, useRef, useSyncExternalStore } from "react";
-import { deepSignal, DeepSignalOptions } from "../..";
+import { deepSignal, DeepSignalOptions } from "../../index.ts";
 
 /**
  * Create or use an existing deepSignal object in your component.

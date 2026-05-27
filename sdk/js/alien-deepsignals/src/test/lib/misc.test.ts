@@ -9,8 +9,8 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import { describe, it, expect, vi } from "vitest";
-import { deepSignal, getDeepSignalRootId, getRaw } from "../../deepSignal";
-import { watch } from "../../watch";
+import { deepSignal, getDeepSignalRootId } from "../../deepSignal.ts";
+import { watch } from "../../watch.ts";
 
 describe("watch advanced", () => {
     it("basic patch watcher fires on deep mutations", async () => {

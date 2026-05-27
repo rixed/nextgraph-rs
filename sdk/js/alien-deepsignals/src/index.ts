@@ -5,7 +5,7 @@ export {
     isDeepSignal,
     shallow,
     subscribeDeepMutations,
-} from "./deepSignal";
-export * from "./core";
-export * from "./watch";
-export * from "./types";
+} from "./deepSignal.ts";
+export * from "./core.ts";
+export * from "./watch.ts";
+export * from "./types.ts";

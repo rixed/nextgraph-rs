@@ -24,8 +24,10 @@ import {
 } from "./types";
 import {
     createIteratorWithHelpers,
-    iteratorHelperKeys,
-} from "./iteratorHelpers";
+    iteratorFnKeys,
+    nonMutatingArrayFnKeys,
+    nonMutatingSetFnKeys,
+} from "./iteratorHelpers.ts";
 
 /** The current proxy object for the raw object (others might exist but are not the current / clean ones). */
 const rawToProxy = new WeakMap<object, any>();
@@ -463,6 +465,16 @@ function ensureChildProxy<T>(
 
     const parentRaw = parent[RAW_KEY] || parent;
     const parentMeta = rawToMeta.get(parentRaw)!;
+    if (!parentMeta)
+        console.log(
+            "no parent meta",
+            "rawChild",
+            rawChild,
+            "parent",
+            parent,
+            "parent raw",
+            parentRaw
+        );
 
     // Child is already proxied, ensure the linkage from parent to child.
     if (rawToProxy.has(rawChild)) {
@@ -1243,7 +1255,7 @@ const setHandlers: ProxyHandler<Set<any>> = {
                 ]);
             };
         }
-        if (typeof key === "string" && iteratorHelperKeys.has(key)) {
+        if (typeof key === "string" && iteratorFnKeys.has(key)) {
             return function iteratorHelper(this: any, ...args: any[]) {
                 const iterator = createSetIterator(
                     target,
@@ -1324,7 +1336,7 @@ export function isDeepSignal(value: unknown): value is DeepSignal<any> {
  *
  * @param input An object that you want to use as reactive, deepSignal object.
  *              If the input object is a DeepSignal object already, returns the same object.
- * @param specialOptions Additional configuration options.
+ * @param options Additional configuration options.
  *
  * @returns A {@link DeepSignal} object.
  *   You can use the returned DeepSignal as you would use your input object.
@@ -1346,7 +1358,7 @@ export function isDeepSignal(value: unknown): value is DeepSignal<any> {
  */
 export function deepSignal<T extends object>(
     input: T,
-    specialOptions?: DeepSignalOptions
+    options?: DeepSignalOptions
 ): DeepSignal<T> {
     // Is the input already a signal?
     if (isDeepSignal(input)) {
@@ -1354,12 +1366,12 @@ export function deepSignal<T extends object>(
         const meta = rawToMeta.get((input as any)[RAW_KEY]!)!;
         meta.options.subscriberFactories =
             meta.options.subscriberFactories!.union(
-                specialOptions?.subscriberFactories ?? new Set()
+                options?.subscriberFactories ?? new Set()
             );
 
         meta.options.replaceProxiesInBranchOnChange =
             meta?.options.replaceProxiesInBranchOnChange ||
-            specialOptions?.replaceProxiesInBranchOnChange;
+            options?.replaceProxiesInBranchOnChange;
 
         return input as DeepSignal<T>;
     }
@@ -1375,7 +1387,7 @@ export function deepSignal<T extends object>(
             syntheticIdPropertyName: DEFAULT_SYNTHETIC_ID_PROPERTY_NAME,
             replaceProxiesInBranchOnChange: false,
             subscriberFactories: new Set(),
-            ...specialOptions,
+            ...options,
         },
         version: 0,
         listeners: new Set<DeepPatchSubscriber>(),
@@ -1474,3 +1486,214 @@ export function addWithId<T>(set: Set<T>, entry: T, id: string | number): T {
 export function getRaw<T extends object>(value: T | DeepSignal<T>) {
     return (value as any)?.[RAW_KEY] ?? value;
 }
+
+/**
+ * Function to create a proxy of a deep signal that is partly sealed.
+ *
+ * The properties listed in `propertyNames` are not modifiable by the returned object.
+ * This includes the property name at any level. If an object is sealed, all its properties
+ * are as well.
+ *
+ * @param value The deep signal object to seal properties of.
+ * @param disallowedProps The property names to seal. Nested properties are sealed as well. If an array, it's the path to a property.
+ */
+export function createSealed<T>(
+    value: DeepSignal<T>,
+    disallowedProps: ((string | symbol)[] | string | symbol)[]
+): DeepSignal<T> {
+    const deepSignalMeta: ProxyMeta = (value as any)?.[META_KEY];
+    if (!deepSignalMeta) throw new Error("Value must be a deep signal object");
+
+    if (deepSignalMeta.options.replaceProxiesInBranchOnChange) {
+        // TODO: We could build a parallel structure to the one we use to orient ourselves with
+        //  when it comes to listening to changes in the hierarchy. Currently, all references are replaced.
+        //  we need to replace all references to sealed objects too. Just that here we store the metadata
+        //  with the current proxy (because there might be more than one sealed version).
+        //  we can tackle that problem by creating a WeakMap<proxy, meta>. Unused proxies are dropped.
+        //  on replace, only new references are made.
+        throw new Error(
+            "replaceProxiesInBranchOnChange is currently not supported"
+        );
+    }
+
+    const sealedObject = new Proxy(value, sealedProxyHandlers);
+
+    const disallowedMeta = [RAW_KEY, META_KEY];
+
+    const sealMeta: SealMeta = {
+        disallowed: [...disallowedProps, ...disallowedMeta],
+        path: [],
+    };
+
+    deepSignalToSealMeta.set(value, sealMeta);
+
+    return sealedObject;
+}
+
+type SealMeta = {
+    path: (string | symbol)[];
+    disallowed: ((string | symbol)[] | string | symbol)[];
+};
+
+const deepSignalToSealMeta: WeakMap<any, SealMeta> = new WeakMap();
+
+const sealAllPropsSymbol = Symbol("Key to seal all properties");
+
+/**
+ * Checks is property `p` is sealed on `target` object.
+ * Target must be a sealed object created with @see createSealed or a nested object thereof.
+ */
+const isPropSealed = (target: any, p: string | symbol): boolean => {
+    const sealMeta = deepSignalToSealMeta.get(target);
+    if (!sealMeta) {
+        throw new Error("isPropSealed() was called on a non-sealed object.");
+    }
+
+    // Get all props that are to be applied on any level (all that are not wrapped in array).
+    const rootLevelDeny = new Set(
+        sealMeta.disallowed.filter(
+            (disallowed) => !Array.isArray(disallowed)
+        ) as (string | symbol)[]
+    );
+
+    if (rootLevelDeny.has(p) || rootLevelDeny.has(sealAllPropsSymbol)) {
+        return true;
+    }
+
+    // // Not necessary, we guard for this when creating a new proxy for child.
+    // if (sealMeta.path.some(prop => rootLevelDeny.has(prop))) {
+    //     return false;
+    // }
+
+    let candidates: (string | symbol)[][] = sealMeta.disallowed.filter((d) =>
+        Array.isArray(d)
+    );
+
+    let i = 0;
+    const newPath = [...sealMeta.path, p];
+    let currentProp = newPath[0];
+    do {
+        const hasMatch = candidates.some(
+            (c) => c.length === 1 && c[0] === currentProp
+        );
+        if (hasMatch) return true;
+
+        // We can break early, if we are at the end of the path.
+        if (i < newPath.length) break;
+
+        // Traverse disallowed paths. If a path starts with currentProp, slice it away.
+        // Otherwise, drop candidate.
+        candidates = candidates
+            .map((candidatePath) =>
+                candidatePath.length > 1 && candidatePath[0] === currentProp
+                    ? candidatePath.slice(1)
+                    : undefined
+            )
+            .filter((v) => v) as (string | symbol)[][];
+
+        i += 1;
+    } while (candidates.length > 0);
+
+    return false;
+};
+
+const sealedProxyHandlers: ProxyHandler<any> = {
+    apply(target, thisArg, argArray) {
+        return Reflect.apply(target, thisArg, argArray);
+    },
+    construct(target, argArray, newTarget) {
+        throw new Error(
+            "construct() is not supported on sealed deep signal objects."
+        );
+    },
+    defineProperty(target, property, attributes) {
+        if (isPropSealed(target, property)) {
+            throw new Error(
+                `Cannot define property on sealed property ${property.toString()}`
+            );
+        }
+        return Reflect.defineProperty(target, property, attributes);
+    },
+    deleteProperty(target, p) {
+        if (isPropSealed(target, p)) {
+            throw new Error(`Cannot delete sealed property ${p.toString()}.`);
+        }
+        return Reflect.deleteProperty(target, p);
+    },
+    get(target, p, receiver) {
+        const shouldSeal = isPropSealed(target, p);
+        if (shouldSeal) {
+            if (Array.isArray(target)) {
+                if (!nonMutatingArrayFnKeys.has(p)) {
+                    throw new Error(
+                        "Arrays of sealed deep signal objects only expose non-mutating functions."
+                    );
+                }
+            } else if (target instanceof Set) {
+                if (!nonMutatingSetFnKeys.has(p)) {
+                    throw new Error(
+                        "Sets of sealed deep signal objects only expose non-mutating functions."
+                    );
+                }
+            }
+        }
+
+        const gottenValue = Reflect.get(target, p, receiver);
+
+        // Literal values and functions are returned.
+        if (typeof gottenValue !== "object") {
+            return gottenValue;
+        }
+
+        // Case: Nested objects: We wrap around a proxy.
+
+        // Create sealed child object.
+        const sealedObject = new Proxy(gottenValue, sealedProxyHandlers);
+        const meta = deepSignalToSealMeta.get(target)!;
+
+        // Meta: Use same disallowed values but update path.
+        // If whole object is sealed, we use [sealAllPropsSymbol] though.
+        const sealMeta: SealMeta = {
+            disallowed: shouldSeal ? [sealAllPropsSymbol] : meta.disallowed,
+            path: [...meta.path, p],
+        };
+
+        deepSignalToSealMeta.set(gottenValue, sealMeta);
+
+        return sealedObject;
+    },
+    getPrototypeOf(target) {
+        return null;
+    },
+    getOwnPropertyDescriptor(target, p) {
+        return undefined;
+    },
+    has(target, p) {
+        return Reflect.has(target, p);
+    },
+
+    isExtensible(target) {
+        return true;
+    },
+    ownKeys(target) {
+        return target.ownKeys?.();
+    },
+    preventExtensions(target) {
+        throw new Error(
+            "preventExtension() is not supported on sealed deep signal objects."
+        );
+    },
+    set(target, p, newValue, receiver) {
+        if (isPropSealed(target, p)) {
+            throw new Error(
+                `Cannot set value on sealed property ${p.toString()}`
+            );
+        }
+        return Reflect.set(target, p, newValue, receiver);
+    },
+    setPrototypeOf(target, v) {
+        throw new Error(
+            "setPrototypeOf() is not supported on sealed deep signal objects."
+        );
+    },
+};

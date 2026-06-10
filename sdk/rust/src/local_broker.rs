@@ -3168,6 +3168,50 @@ pub async fn admin_create_user(
     }
 }
 
+#[doc(hidden)]
+pub async fn admin_list_users(
+    server_peer_id: DirectPeerId,
+    admin_user_key: PrivKey,
+    server_addr: BindAddress,
+    admins: bool,
+) -> Result<Vec<PubKey>, ProtocolError> {
+    log_info!("sdk/rust/local_broker.rs: admin_list_users!");
+    let res = do_admin_call(
+        server_peer_id,
+        admin_user_key,
+        server_addr,
+        ListUsers::V0(ListUsersV0 { admins }),
+    )
+    .await?;
+
+    match res {
+        AdminResponseContentV0::Users(users) => Ok(users),
+        _ => Err(ProtocolError::InvalidValue),
+    }
+}
+
+#[doc(hidden)]
+pub async fn admin_usage_stats(
+    server_peer_id: DirectPeerId,
+    admin_user_key: PrivKey,
+    server_addr: BindAddress,
+    user: PubKey,
+) -> Result<UsageStats, ProtocolError> {
+    log_info!("sdk/rust/local_broker.rs: admin_usage_stats!");
+    let res = do_admin_call(
+        server_peer_id,
+        admin_user_key,
+        server_addr,
+        RequestUsageStats::V0(RequestUsageStatsV0{ user }),
+    )
+    .await?;
+
+    match res {
+        AdminResponseContentV0::UsageStats(stats) => Ok(stats),
+        _ => Err(ProtocolError::InvalidValue),
+    }
+}
+
 #[allow(unused_imports)]
 #[cfg(test)]
 mod test {

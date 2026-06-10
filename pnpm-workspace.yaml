@@ -12,6 +12,7 @@ packages:
     - sdk/js/examples/test-react-sdk
     - app/ui-common
     - app/nextgraph
+    - app/miniapp
     - engine/broker/auth
     - infra/ngaccount/web
     - infra/ngapp/web

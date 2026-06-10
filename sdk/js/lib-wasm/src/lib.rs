@@ -180,6 +180,13 @@ pub fn privkey_to_string(privkey: JsValue) -> Result<String, JsValue> {
 }
 
 #[wasm_bindgen]
+pub fn pubkey_to_string(pubkey: JsValue) -> Result<String, JsValue> {
+    let p = serde_wasm_bindgen::from_value::<PubKey>(pubkey)
+        .map_err(|_| "Deserialization error of pubkey")?;
+    Ok(format!("{p}"))
+}
+
+#[wasm_bindgen]
 pub fn wallet_open_with_password(wallet: JsValue, password: String) -> Result<JsValue, JsValue> {
     let encrypted_wallet = serde_wasm_bindgen::from_value::<Wallet>(wallet)
         .map_err(|_| "Deserialization error of wallet")?;
@@ -820,6 +827,38 @@ pub async fn admin_create_user(config: JsValue) -> Result<JsValue, String> {
     .map_err(|e: ProtocolError| e.to_string())?;
 
     Ok(serde_wasm_bindgen::to_value(&res.to_string()).unwrap())
+}
+
+#[wasm_bindgen]
+pub async fn admin_list_users(server_peer_id: JsValue, user_priv_key: JsValue, server_ip: String, admins: bool) -> Result<JsValue, String> {
+    let server_peer_id = serde_wasm_bindgen::from_value::<DirectPeerId>(server_peer_id)
+        .map_err(|_| "Deserialization error of DirectPeerId")?;
+    let user_priv_key = serde_wasm_bindgen::from_value::<PrivKey>(user_priv_key)
+        .map_err(|_| "Deserialization error of PrivKey")?;
+    let server_addr = BindAddress::of_ws_url(server_ip);
+    let users = nextgraph::local_broker::admin_list_users(
+        server_peer_id, user_priv_key, server_addr, admins
+    )
+    .await
+    .map_err(|e: ProtocolError| e.to_string())?;
+    Ok(serde_wasm_bindgen::to_value(&users).unwrap())
+}
+
+#[wasm_bindgen]
+pub async fn admin_usage_stats(server_peer_id: JsValue, user_priv_key: JsValue, server_ip: String, user: JsValue) -> Result<JsValue, String> {
+    let server_peer_id = serde_wasm_bindgen::from_value::<DirectPeerId>(server_peer_id)
+        .map_err(|_| "Deserialization error of DirectPeerId")?;
+    let user_priv_key = serde_wasm_bindgen::from_value::<PrivKey>(user_priv_key)
+        .map_err(|_| "Deserialization error of PrivKey")?;
+    let server_addr = BindAddress::of_ws_url(server_ip);
+    let user = serde_wasm_bindgen::from_value::<PubKey>(user)
+        .map_err(|_| "Deserialization error of PubKey")?;
+    let stats = nextgraph::local_broker::admin_usage_stats(
+        server_peer_id, user_priv_key, server_addr, user
+    )
+    .await
+    .map_err(|e: ProtocolError| e.to_string())?;
+    Ok(serde_wasm_bindgen::to_value(&stats).unwrap())
 }
 
 #[wasm_bindgen]
@@ -2278,7 +2317,7 @@ pub async fn user_connect(
     #[derive(Serialize, Deserialize)]
     struct ConnectionInfo {
         pub server_id: String,
-        pub server_ip: String,
+        pub server_ip: String, /* lol */
         pub error: Option<String>,
         #[serde(with = "serde_wasm_bindgen::preserve")]
         pub since: js_sys::Date,

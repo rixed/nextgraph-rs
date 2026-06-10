@@ -16,7 +16,7 @@ use std::collections::HashSet;
 use std::sync::Arc;
 use std::{
     any::{Any, TypeId},
-    net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
+    net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, AddrParseError},
 };
 
 use serde::{Deserialize, Serialize};
@@ -177,6 +177,15 @@ impl BindAddress {
             self.ip,
             if self.port == 0 { 80 } else { self.port }
         )
+    }
+    pub fn of_ws_url(url: String) -> Self {
+        let url = url.trim_start_matches("ws://");
+        let (ip_str, port_str) = url.rsplit_once(':').unwrap();
+        let port: u16 = port_str.parse().unwrap_or(0);
+        Self {
+            port,
+            ip: ip_str.parse().unwrap(),
+        }
     }
     pub fn new_localhost_with_port(port: u16) -> Self {
         BindAddress {
@@ -361,7 +370,7 @@ fn api_dyn_peer_url(peer_id: &PubKey) -> String {
 pub const LOCAL_HOSTS: [&str; 3] = ["localhost", "127.0.0.1", "[::1]"];
 
 fn local_ws_url(port: &u16) -> String {
-    format!("ws://localhost:{}", if *port == 0 { 80 } else { *port })
+    format!("ws://localhost:{}", if *port == 0 { 80 } else { *port }) // FIXME (everywhere)
 }
 #[doc(hidden)]
 pub(crate) fn local_http_url(port: &u16) -> String {
@@ -1616,6 +1625,7 @@ pub type SessionId = PubKey;
 /// Client ID: client of a user
 pub type ClientId = PubKey;
 
+// TODO: why not std::net::IpAddr, which definition is similar?
 /// IPv4 address
 pub type IPv4 = [u8; 4];
 
@@ -1685,6 +1695,17 @@ impl From<&IP> for IpAddr {
             IP::IPv4(v4) => IpAddr::from(*v4),
             IP::IPv6(v6) => IpAddr::from(*v6),
         }
+    }
+}
+
+impl std::str::FromStr for IP {
+    type Err = AddrParseError;
+    fn from_str(s: &str) -> Result<Self, AddrParseError> {
+        /* FIXME: Relax admin calls to accept hostnames rather than IPs or
+         * do not allow hostnames in WS URLs (at the type level) */
+        let s = if (s == "localhost") { "127.0.0.1" } else { s };
+        let ip_addr = s.parse::<IpAddr>()?;
+        return Ok((&ip_addr).into());
     }
 }
 

@@ -194,6 +194,8 @@ pub struct CoreConfig {
 pub struct AdminConfig {
     pub user: PubKey,
     pub user_priv: PrivKey,
+    /* FIXME: Either accept a String here (aka hostname) or force all WS URLs to
+     * use an IP */
     pub addr: BindAddress,
     pub request: AdminRequestContentV0,
 }

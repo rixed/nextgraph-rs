@@ -40,6 +40,8 @@ export const nonMutatingArrayFnKeys = new Set([
     "toLocaleString",
     "values",
     "with",
+    Symbol.toString,
+    Symbol.toStringTag,
 ]).union(iteratorFnKeys);
 
 export const nonMutatingSetFnKeys = new Set([
@@ -55,6 +57,8 @@ export const nonMutatingSetFnKeys = new Set([
     "symmetricDifference",
     "union",
     "values",
+    Symbol.toString,
+    Symbol.toStringTag,
 ]).union(iteratorFnKeys);
 
 export function createIteratorWithHelpers<T>(

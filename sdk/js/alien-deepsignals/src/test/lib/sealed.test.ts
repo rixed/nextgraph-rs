@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import { deepSignal } from "../../deepSignal.ts";
 import { effect, computed } from "../../core.ts";
 import { createSeal, sealAllProps } from "../../sealedSignal.ts";

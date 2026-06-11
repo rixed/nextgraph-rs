@@ -25,8 +25,6 @@ import {
 import {
     createIteratorWithHelpers,
     iteratorFnKeys,
-    nonMutatingArrayFnKeys,
-    nonMutatingSetFnKeys,
 } from "./iteratorHelpers.ts";
 
 /** The current proxy object for the raw object (others might exist but are not the current / clean ones). */

@@ -217,7 +217,7 @@ const sealedProxyHandlers: Required<ProxyHandler<any>> = {
                 return !shouldSeal;
             },
             set(v) {
-                if (!shouldSeal) {
+                if (shouldSeal) {
                     throw new Error("Cannot set value on sealed property");
                 }
                 sealedProxyHandlers.set(target, p, v, undefined);

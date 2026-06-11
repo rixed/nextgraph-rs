@@ -40,8 +40,8 @@ export const worker_ready = new Promise<void>((resolve) => {
     myWorker.onmessage = async (msg) => {
         //console.log("Message received from worker", msg.data);
         if (msg.data.loaded) {
-            resolve();
             console.log("WASM worker loaded");
+            resolve();
         } else if (msg.data.method == "session_save") {
             try {
                 sessionStorage.setItem(msg.data.key, msg.data.value);
@@ -107,8 +107,9 @@ const streamed_api: Record<string, number> = {
     disconnections_subscribe: 0,
 };
 
-function call_sdk(method: string, args?: any) {
+async function call_sdk(method: string, args?: any) {
     //console.log("call_sdk", method, args)
+    await worker_ready;
 
     const { port1, port2 } = new MessageChannel();
 

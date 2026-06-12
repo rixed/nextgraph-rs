@@ -24,7 +24,7 @@ import {
 } from "./types.ts";
 import {
     createIteratorWithHelpers,
-    iteratorHelperKeys,
+    iteratorFnKeys,
 } from "./iteratorHelpers.ts";
 
 /** The current proxy object for the raw object (others might exist but are not the current / clean ones). */
@@ -84,9 +84,9 @@ const wellKnownSymbols = new Set<symbol>([
 ]);
 const forcedSyntheticIds = new WeakMap<object, string>();
 
-const META_KEY = "__meta__" as const;
-const RAW_KEY = "__raw__" as const;
-const DEFAULT_SYNTHETIC_ID_PROPERTY_NAME = "@id";
+export const META_KEY = "__meta__" as const;
+export const RAW_KEY = "__raw__" as const;
+export const DEFAULT_SYNTHETIC_ID_PROPERTY_NAME = "@id";
 
 /** Returns `true` if `value` is an object, array or set and is not in `ignored`. */
 function shouldProxy(value: any): value is object {
@@ -615,8 +615,13 @@ function createProxy<T extends object>(
     rawToMeta.set(target, meta);
     rawToProxy.set(target, proxy);
 
+    // if (target.sealedArray) {
+    //     proxyVersionsForSealedArrayObj.add(target);
+    //     proxyVersionsForSealedArrayObj.add(proxy);
+    // }
     return proxy as DeepSignal<T>;
 }
+const proxyVersionsForSealedArrayObj = new Set<any>();
 
 /** Return primitive literals (string/number/boolean) for patch serialization. */
 function snapshotLiteral(value: any) {
@@ -1243,7 +1248,7 @@ const setHandlers: ProxyHandler<Set<any>> = {
                 ]);
             };
         }
-        if (typeof key === "string" && iteratorHelperKeys.has(key)) {
+        if (typeof key === "string" && iteratorFnKeys.has(key)) {
             return function iteratorHelper(this: any, ...args: any[]) {
                 const iterator = createSetIterator(
                     target,
@@ -1324,7 +1329,7 @@ export function isDeepSignal(value: unknown): value is DeepSignal<any> {
  *
  * @param input An object that you want to use as reactive, deepSignal object.
  *              If the input object is a DeepSignal object already, returns the same object.
- * @param specialOptions Additional configuration options.
+ * @param options Additional configuration options.
  *
  * @returns A {@link DeepSignal} object.
  *   You can use the returned DeepSignal as you would use your input object.
@@ -1346,7 +1351,7 @@ export function isDeepSignal(value: unknown): value is DeepSignal<any> {
  */
 export function deepSignal<T extends object>(
     input: T,
-    specialOptions?: DeepSignalOptions
+    options?: DeepSignalOptions
 ): DeepSignal<T> {
     // Is the input already a signal?
     if (isDeepSignal(input)) {
@@ -1354,12 +1359,12 @@ export function deepSignal<T extends object>(
         const meta = rawToMeta.get((input as any)[RAW_KEY]!)!;
         meta.options.subscriberFactories =
             meta.options.subscriberFactories!.union(
-                specialOptions?.subscriberFactories ?? new Set()
+                options?.subscriberFactories ?? new Set()
             );
 
         meta.options.replaceProxiesInBranchOnChange =
             meta?.options.replaceProxiesInBranchOnChange ||
-            specialOptions?.replaceProxiesInBranchOnChange;
+            options?.replaceProxiesInBranchOnChange;
 
         return input as DeepSignal<T>;
     }
@@ -1375,7 +1380,7 @@ export function deepSignal<T extends object>(
             syntheticIdPropertyName: DEFAULT_SYNTHETIC_ID_PROPERTY_NAME,
             replaceProxiesInBranchOnChange: false,
             subscriberFactories: new Set(),
-            ...specialOptions,
+            ...options,
         },
         version: 0,
         listeners: new Set<DeepPatchSubscriber>(),

@@ -4,19 +4,62 @@ function hasNativeIteratorHelpers() {
     );
 }
 
-export const iteratorHelperKeys = new Set([
-    "map",
-    "filter",
-    "take",
+export const iteratorFnKeys = new Set([
     "drop",
-    "flatMap",
-    "reduce",
-    "toArray",
-    "forEach",
-    "some",
     "every",
+    "filter",
     "find",
+    "flatMap",
+    "forEach",
+    "includes",
+    "map",
+    "reduce",
+    "some",
+    "take",
+    "toArray",
+    Symbol.iterator,
+    Symbol.asyncIterator,
 ]);
+
+export const nonMutatingArrayFnKeys = new Set([
+    "at",
+    "concat",
+    "entries",
+    "findIndex",
+    "findLast",
+    "findLastIndex",
+    "flat",
+    "indexOf",
+    "join",
+    "keys",
+    "lastIndexOf",
+    "reduceRight",
+    "toLocaleString",
+    "toReversed",
+    "toSorted",
+    "toLocaleString",
+    "values",
+    "with",
+    Symbol.toString,
+    Symbol.toStringTag,
+]).union(iteratorFnKeys);
+
+export const nonMutatingSetFnKeys = new Set([
+    "difference",
+    "entries",
+    "forEach",
+    "has",
+    "intersection",
+    "isDisjointFrom",
+    "isSubsetOf",
+    "isSupersetOf",
+    "keys",
+    "symmetricDifference",
+    "union",
+    "values",
+    Symbol.toString,
+    Symbol.toStringTag,
+]).union(iteratorFnKeys);
 
 export function createIteratorWithHelpers<T>(
     nextImpl: () => IteratorResult<T, undefined>,

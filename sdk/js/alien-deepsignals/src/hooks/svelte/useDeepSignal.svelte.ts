@@ -9,7 +9,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import { createSubscriber } from "svelte/reactivity";
-import { DeepSignalOptions, deepSignal, DeepSignal } from "../../index";
+import { DeepSignalOptions, deepSignal, DeepSignal } from "../../index.ts";
 
 /**
  * Create a rune from a deepSignal object (creates one if it is just a regular object).

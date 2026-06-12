@@ -1,9 +1,9 @@
-import { META_KEY, RAW_KEY } from "./deepSignal";
+import { META_KEY, RAW_KEY } from "./deepSignal.ts";
 import {
     nonMutatingArrayFnKeys,
     nonMutatingSetFnKeys,
-} from "./iteratorHelpers";
-import { DeepSignal, ProxyMeta } from "./types";
+} from "./iteratorHelpers.ts";
+import { DeepSignal, ProxyMeta } from "./types.ts";
 
 /**
  * Function to create a seal on a deep signal.

@@ -6,8 +6,8 @@ export {
     shallow,
     subscribeDeepMutations,
     RAW_KEY,
-} from "./deepSignal";
-export * from "./core";
-export * from "./watch";
-export * from "./types";
-export { createSeal, sealAllProps } from "./sealedSignal";
+} from "./deepSignal.ts";
+export * from "./core.ts";
+export * from "./watch.ts";
+export * from "./types.ts";
+export { createSeal, sealAllProps } from "./sealedSignal.ts";

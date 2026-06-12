@@ -1,2 +1,2 @@
-import useDeepSignal from "./useDeepSignal";
+import useDeepSignal from "./useDeepSignal.ts";
 export { useDeepSignal };

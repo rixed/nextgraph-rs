@@ -41,49 +41,111 @@ and call admin functions of the SDK to display users usage statistics.
   function set_user_ids(s: UserIds) { user_ids = s }
 </script>
 
-<section id="whoAmI">
-  <p>
-    In order to connect to the remote broker, you need to be a registered user
-    (ideally with admin rights to be able to read users&lsquo; stats), and
-    be able to open (one of) your wallet(s).
-  </p>
-  <WhoAmI on_submit={set_user_ids} />
-  {#if user_ids !== null}✓{/if}
-</section>
+<div class="min-h-screen bg-base-200">
+  <div class="max-w-3xl mx-auto px-4 py-8 sm:py-12">
+    <header class="mb-8 text-center">
+      <h1 class="text-3xl sm:text-4xl font-bold tracking-tight">
+        NextGraph <span class="text-primary">Admin</span>
+      </h1>
+      <p class="mt-2 text-base-content/60">
+        Connect through your local broker and read users&lsquo; usage statistics.
+      </p>
+    </header>
 
-<section id="wallets">
-  <p>
-    Pick your wallet (which password you entered above):
-  </p>
-  <Wallets bind:wallet={wallet} bind:wallet_id={wallet_id} />
-</section>
+    <ol class="flex flex-col gap-5">
+      <li class="card bg-base-100 shadow-md">
+        <div class="card-body gap-4">
+          <div class="flex items-center gap-3">
+            <span class="badge badge-primary badge-lg font-semibold">1</span>
+            <h2 class="card-title grow">Identify yourself</h2>
+            {#if user_ids !== null}
+              <span class="badge badge-success gap-1">✓ done</span>
+            {/if}
+          </div>
+          <p class="text-sm text-base-content/70">
+            In order to connect to the remote broker, you need to be a registered
+            user (ideally with admin rights to be able to read users&lsquo; stats),
+            and be able to open (one of) your wallet(s).
+          </p>
+          <WhoAmI on_submit={set_user_ids} />
+        </div>
+      </li>
 
-{#if wallet !== null && opened_wallet === null}
-  <section id="password">
-    <Password bind:opened_wallet={opened_wallet} {wallet} />
-  </section>
-{/if}
+      <li class="card bg-base-100 shadow-md">
+        <div class="card-body gap-4">
+          <div class="flex items-center gap-3">
+            <span class="badge badge-primary badge-lg font-semibold">2</span>
+            <h2 class="card-title grow">Pick your wallet</h2>
+            {#if wallet !== null}
+              <span class="badge badge-success gap-1">✓ done</span>
+            {/if}
+          </div>
+          <p class="text-sm text-base-content/70">
+            Pick the wallet matching the password you entered above:
+          </p>
+          <Wallets bind:wallet={wallet} bind:wallet_id={wallet_id} />
+        </div>
+      </li>
 
-{#if opened_wallet !== null && user_ids !== null}
-  <section id="brokers">
-    <p>Select the broker to connect to:</p>
-    <Brokers
-      bind:selected_broker={selected_broker}
-      {opened_wallet} {user_ids} />
-  </section>
-{/if}
+      {#if wallet !== null && opened_wallet === null}
+        <li class="card bg-base-100 shadow-md">
+          <div class="card-body gap-4">
+            <div class="flex items-center gap-3">
+              <span class="badge badge-primary badge-lg font-semibold">3</span>
+              <h2 class="card-title grow">Unlock your wallet</h2>
+            </div>
+            <Password bind:opened_wallet={opened_wallet} {wallet} />
+          </div>
+        </li>
+      {/if}
 
-{#if selected_broker !== null && wallet_id !== null && user_ids !== null}
-  <section id="users">
-    <p>Select a user to display her usage stats:</p>
-    <Users
-      bind:selected_user={selected_user} bind:conn={conn}
-      {selected_broker} {wallet_id} {user_ids} />
-  </section>
-{/if}
+      {#if opened_wallet !== null && user_ids !== null}
+        <li class="card bg-base-100 shadow-md">
+          <div class="card-body gap-4">
+            <div class="flex items-center gap-3">
+              <span class="badge badge-primary badge-lg font-semibold">4</span>
+              <h2 class="card-title grow">Select a broker</h2>
+              {#if selected_broker !== null}
+                <span class="badge badge-success gap-1">✓ done</span>
+              {/if}
+            </div>
+            <p class="text-sm text-base-content/70">Select the broker to connect to:</p>
+            <Brokers
+              bind:selected_broker={selected_broker}
+              {opened_wallet} {user_ids} />
+          </div>
+        </li>
+      {/if}
 
-{#if user_ids !== null && selected_user !== null && conn !== null}
-  <section id="stats">
-    <UserStats user_priv_key={user_ids.priv_key} {conn} {selected_user} />
-  </section>
-{/if}
+      {#if selected_broker !== null && wallet_id !== null && user_ids !== null}
+        <li class="card bg-base-100 shadow-md">
+          <div class="card-body gap-4">
+            <div class="flex items-center gap-3">
+              <span class="badge badge-primary badge-lg font-semibold">5</span>
+              <h2 class="card-title grow">Select a user</h2>
+              {#if selected_user !== null}
+                <span class="badge badge-success gap-1">✓ done</span>
+              {/if}
+            </div>
+            <p class="text-sm text-base-content/70">Select a user to display her usage stats:</p>
+            <Users
+              bind:selected_user={selected_user} bind:conn={conn}
+              {selected_broker} {wallet_id} {user_ids} />
+          </div>
+        </li>
+      {/if}
+
+      {#if user_ids !== null && selected_user !== null && conn !== null}
+        <li class="card bg-base-100 shadow-md">
+          <div class="card-body gap-4">
+            <div class="flex items-center gap-3">
+              <span class="badge badge-primary badge-lg font-semibold">6</span>
+              <h2 class="card-title grow">Usage statistics</h2>
+            </div>
+            <UserStats user_priv_key={user_ids.priv_key} {conn} {selected_user} />
+          </div>
+        </li>
+      {/if}
+    </ol>
+  </div>
+</div>

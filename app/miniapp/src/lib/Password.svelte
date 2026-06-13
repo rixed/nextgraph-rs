@@ -30,12 +30,21 @@
 </script>
 
 {#if error}
-  <p>Error: {error}</p>
+  <div role="alert" class="alert alert-error">
+    <span>Error: {error}</span>
+  </div>
 {:else if busy}
-  <p>Opening the wallet…</p>
+  <div class="flex items-center gap-2 text-base-content/60">
+    <span class="loading loading-spinner loading-sm"></span> Opening the wallet…
+  </div>
 {:else}
-  <form onsubmit={(e) => { e.preventDefault(); submit(); }}>
-    <p><label>Password: <input type="password" bind:value={wallet_pwd} /></label></p>
-    <p><button type="submit">Submit</button></p>
+  <form
+    class="flex flex-col gap-3"
+    onsubmit={(e) => { e.preventDefault(); submit(); }}>
+    <label class="form-control w-full">
+      <span class="label-text mb-1">Password</span>
+      <input class="input input-bordered w-full" type="password" bind:value={wallet_pwd} />
+    </label>
+    <button class="btn btn-primary self-start" type="submit">Unlock</button>
   </form>
 {/if}

@@ -18,10 +18,16 @@
   }
 </script>
 
-<div>
-  <form onsubmit={(e) => { e.preventDefault(); submit(); }}>
-    <p><label>Public key: <input bind:value={pub_key} /></label></p>
-    <p><label>Private key: <input type="password" bind:value={priv_key} /></label></p>
-    <p><button type="submit">Submit</button></p>
-  </form>
-</div>
+<form
+  class="flex flex-col gap-3"
+  onsubmit={(e) => { e.preventDefault(); submit(); }}>
+  <label class="form-control w-full">
+    <span class="label-text mb-1">Public key</span>
+    <input class="input input-bordered w-full font-mono text-sm" bind:value={pub_key} />
+  </label>
+  <label class="form-control w-full">
+    <span class="label-text mb-1">Private key</span>
+    <input class="input input-bordered w-full font-mono text-sm" type="password" bind:value={priv_key} />
+  </label>
+  <button class="btn btn-primary self-start" type="submit">Submit</button>
+</form>

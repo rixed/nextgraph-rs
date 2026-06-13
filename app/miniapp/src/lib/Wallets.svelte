@@ -36,19 +36,24 @@
 </script>
 
 {#if loading}
-  <p>loading…</p>
+  <div class="flex items-center gap-2 text-base-content/60">
+    <span class="loading loading-spinner loading-sm"></span> loading…
+  </div>
 {:else if error}
-  <p>Error: {error}</p>
+  <div role="alert" class="alert alert-error">
+    <span>Error: {error}</span>
+  </div>
+{:else if Object.keys(wallets).length === 0}
+  <p class="text-base-content/60 italic">No local wallet found.</p>
 {:else}
-  <ul>
+  <div class="flex flex-col gap-2">
     {#each Object.keys(wallets) as id}
-      <li>
-        <label>
-          <input type="radio" name="wallet" value={id}
-                 bind:group={selected_id} />
-          {id}
-        </label>
-      </li>
+      <label class="label cursor-pointer justify-start gap-3 rounded-lg border border-base-300 px-3 py-2 hover:bg-base-200">
+        <input type="radio" name="wallet" value={id}
+               class="radio radio-primary radio-sm"
+               bind:group={selected_id} />
+        <span class="font-mono text-sm break-all">{id}</span>
+      </label>
     {/each}
-  </ul>
+  </div>
 {/if}

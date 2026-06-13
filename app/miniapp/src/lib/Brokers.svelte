@@ -32,18 +32,26 @@
 </script>
 
 {#await urls_prom}
-  <p>Building list of brokers...</p>
+  <div class="flex items-center gap-2 text-base-content/60">
+    <span class="loading loading-spinner loading-sm"></span> Building list of brokers…
+  </div>
 {:then urls}
-  <ul>
-    {#each urls as url}
-      <li>
-        <label>
-          <input type="radio" name="url" value={url} bind:group={selected_broker} />
-          {url}
+  {#if urls.length === 0}
+    <p class="text-base-content/60 italic">No broker found in this wallet.</p>
+  {:else}
+    <div class="flex flex-col gap-2">
+      {#each urls as url}
+        <label class="label cursor-pointer justify-start gap-3 rounded-lg border border-base-300 px-3 py-2 hover:bg-base-200">
+          <input type="radio" name="url" value={url}
+                 class="radio radio-primary radio-sm"
+                 bind:group={selected_broker} />
+          <span class="font-mono text-sm break-all">{url}</span>
         </label>
-      </li>
-    {/each}
-  </ul>
+      {/each}
+    </div>
+  {/if}
 {:catch err}
-  <p>Error: {String(err)}</p>
+  <div role="alert" class="alert alert-error">
+    <span>Error: {String(err)}</span>
+  </div>
 {/await}

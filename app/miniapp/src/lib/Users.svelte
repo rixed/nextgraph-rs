@@ -60,20 +60,33 @@
 </script>
 
 {#await users_prom}
-  <p>Loading list of users...</p>
+  <div class="flex items-center gap-2 text-base-content/60">
+    <span class="loading loading-spinner loading-sm"></span> Loading list of users…
+  </div>
 {:then users}
-  <ul>
-    {#each users as user}
-      <li>
-        <label>
-          <input type="radio" name="user" value={user.name} bind:group={selected_user} />
-          {#await ng.pubkey_to_string(user.name)}...
-          {:then name}{name} {user.admin ? "(ADMIN)":""}
-          {:catch err}Error: {String(err)}{/await}
+  {#if users.length === 0}
+    <p class="text-base-content/60 italic">No user found on this broker.</p>
+  {:else}
+    <div class="flex flex-col gap-2">
+      {#each users as user}
+        <label class="label cursor-pointer justify-start gap-3 rounded-lg border border-base-300 px-3 py-2 hover:bg-base-200">
+          <input type="radio" name="user" value={user.name}
+                 class="radio radio-primary radio-sm"
+                 bind:group={selected_user} />
+          <span class="font-mono text-sm break-all grow">
+            {#await ng.pubkey_to_string(user.name)}…
+            {:then name}{name}
+            {:catch err}Error: {String(err)}{/await}
+          </span>
+          {#if user.admin}
+            <span class="badge badge-secondary badge-sm">ADMIN</span>
+          {/if}
         </label>
-      </li>
-    {/each}
-  </ul>
+      {/each}
+    </div>
+  {/if}
 {:catch err}
-  <p>Error: {String(err)}</p>
+  <div role="alert" class="alert alert-error">
+    <span>Error: {String(err)}</span>
+  </div>
 {/await}

@@ -19,3 +19,10 @@ typedoc-out/
 /.cargo
 tags
 **/tests
+docker/dist-web/
+docker/index.gzip
+docker/index.sha256
+docker/ng.tgz
+docker/ngcli
+docker/ngd
+docker.ok

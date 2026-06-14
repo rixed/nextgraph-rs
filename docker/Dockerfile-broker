@@ -1,0 +1,151 @@
+# vim: ft=dockerfile
+# Use rust's latest alpine image as base image.
+FROM rust:1.96-alpine AS builder
+
+RUN apk add \
+      binaryen \
+      build-base \
+      bzip2-static \
+      clang-dev \
+      clang-static \
+      curl \
+      eudev-dev \
+      git \
+      jq \
+      librsvg-dev \
+      llvm-static \
+      llvm-dev \
+      nodejs \
+      npm \
+      openssl \
+      openssl-dev \
+      perl \
+      pkgconf \
+      tar \
+      wget \
+      zlib-static
+
+RUN cargo install cargo-watch
+RUN cargo install wasm-pack --git https://github.com/rustwasm/wasm-pack.git --rev c2b663f25abe50631a236d57a8c6d7fd806413b2
+RUN npm install -g pnpm
+
+RUN git clone --single-branch -b nextgraph https://git.nextgraph.org/rixed/async-tungstenite.git
+RUN git clone --single-branch -b master https://git.nextgraph.org/rixed/rust-rocksdb.git
+RUN git clone --single-branch -b main https://git.nextgraph.org/rixed/nextgraph-rs.git
+
+RUN mkdir /.cargo
+COPY cargo.config.toml /.cargo/config.toml
+
+WORKDIR /nextgraph-rs
+
+RUN cargo install wasm-bindgen-cli --locked --version $(cargo metadata --format-version=1 | jq -r '.packages[] | select(.name=="wasm-bindgen") | .version' | sort -u | head -n1)
+
+ENV WEBPACK_PARALLELISM=1
+ENV NODE_OPTIONS="--max-old-space-size=3000"
+
+RUN rustup target add wasm32-unknown-unknown
+
+# Build everything in "release" or "debug" mode. The value doubles as cargo's
+# target output directory name (target/{release,debug}); the --release/-r flag is
+# derived from it. Declared here, just before first use, so the apk/clone/install
+# layers above stay cached when the profile changes.
+ARG PROFILE=release
+RUN case "$PROFILE" in release|debug) ;; *) echo "PROFILE must be 'release' or 'debug', got '$PROFILE'" >&2; exit 1 ;; esac
+
+RUN rustup component add rustfmt
+
+# Build the nextgraph-rs project and its subprojects.
+# bindgen (pulled in by ng-rocksdb) has to dlopen libclang at build time, which
+# a fully-static musl binary cannot do ("Dynamic loading not supported"). Disable
+# crt-static for the native build so the build scripts are dynamically linked and
+# can load libclang.
+# The RocksDB bundled with ng-rocksdb needs two C++ fixups to build against musl /
+# this toolchain:
+#  - force-include <cstdint>: the vendored RocksDB predates the C++ change where
+#    <cstdint> stopped being included transitively, so its headers fail with
+#    "'uint64_t' has not been declared".
+#  - map PTHREAD_MUTEX_ADAPTIVE_NP to PTHREAD_MUTEX_NORMAL: librocksdb-sys defines
+#    ROCKSDB_PTHREAD_ADAPTIVE_MUTEX on every Linux target and uses the glibc-only
+#    PTHREAD_MUTEX_ADAPTIVE_NP, which musl lacks.
+# Keep these out of CFLAGS: the vendored OpenSSL Configure script parses a bare
+# "stdint.h" as a second build target and aborts.
+ENV RUSTFLAGS="-C target-feature=-crt-static"
+ENV CXXFLAGS="-include cstdint -DPTHREAD_MUTEX_ADAPTIVE_NP=PTHREAD_MUTEX_NORMAL"
+RUN cargo build $([ "$PROFILE" = release ] && echo -r)
+# Or "proc-macro derive" will panic with "#[derive(RustEmbed)] folder '/nextgraph-rs/engine/broker/./auth/dist/' does not exist":
+RUN mkdir -p app/nextgraph/dist-web engine/broker/auth/dist/
+RUN cargo build $([ "$PROFILE" = release ] && echo -r) -p ngd
+RUN cargo build $([ "$PROFILE" = release ] && echo -r) -p ngcli
+RUN cargo build $([ "$PROFILE" = release ] && echo -r) -p lib-wasm
+
+# Compile the nextgraph app as per the various READMEs say:
+#RUN pnpm install
+RUN mkdir -p engine/broker/auth/dist/
+# libwasm shells out to `wasm-pack build`, which runs its inner
+# `cargo build --target wasm32-unknown-unknown` with its own
+# RUSTFLAGS=--cfg=wasmpack_target="bundler". A set RUSTFLAGS env outranks the
+# target.wasm32-unknown-unknown.rustflags in cargo.config.toml, so the
+# getrandom_backend="wasm_js" cfg from that file is dropped and getrandom 0.3
+# refuses to build for wasm32 ("targets are not supported by default").
+# CARGO_ENCODED_RUSTFLAGS outranks the RUSTFLAGS wasm-pack sets, so re-inject the
+# cfg here. We deliberately drop wasmpack_target: lib-wasm only branches on
+# wasmpack_target=="nodejs" vs not, so an unset value compiles identically to the
+# "bundler" value we shadow.
+RUN CARGO_ENCODED_RUSTFLAGS='--cfg=getrandom_backend="wasm_js"' pnpm -C app/nextgraph run libwasm
+RUN pnpm -C app/nextgraph install
+RUN pnpm -C app/nextgraph run buildfrontdev
+RUN pnpm -C app/nextgraph run webbuild
+
+# Then the extra miniapp:
+RUN pnpm -C app/miniapp exec vite build
+
+# Finaly, the configuration for ngd/ngcli:
+COPY ng.tgz /tmp/
+RUN tar zxf /tmp/ng.tgz --transform='s,^\.ng-docker/,.ng/,' && rm /tmp/ng.tgz
+
+# ---------------------------------------------------------------------------
+# Runtime stage: a slim image carrying just the ngd/ngcli binaries and what's
+# needed to serve the prebuilt miniapp via "vite preview". This drops the Rust
+# and Node build toolchains, the cargo target dir and the git checkouts, taking
+# the image from ~12 GB down to ~1.5 GB.
+# ---------------------------------------------------------------------------
+FROM alpine:3.24 AS runtime
+
+# ngd dynamically links libstdc++ + libgcc_s and ngcli links libgcc_s (the build
+# disables crt-static so bindgen can dlopen libclang); nodejs runs "vite preview".
+# musl libc itself comes from the base image. Match the builder's Alpine (3.24) so
+# the musl / libstdc++ ABI lines up.
+RUN apk add --no-cache nodejs libstdc++ libgcc tini
+
+# Same profile arg as the builder stage, so we pick the matching target/ subdir.
+ARG PROFILE=release
+
+# Native binaries, on PATH so the image can run either of them, e.g.:
+#   docker run <img> ngd ...
+#   docker run <img> ngcli ...
+COPY --from=builder /nextgraph-rs/target/$PROFILE/ngd /usr/local/bin/ngd
+COPY --from=builder /nextgraph-rs/target/$PROFILE/ngcli /usr/local/bin/ngcli
+COPY --from=builder /nextgraph-rs/.ng /nextgraph-rs/.ng/
+RUN mkdir -p app/nextgraph/dist-web
+COPY index.gzip index.sha256 /nextgraph-rs/app/nextgraph/dist-web/
+
+# The built miniapp plus the workspace node_modules it depends on. Both must land
+# at their original paths so app/miniapp/node_modules' relative symlinks
+# (../../../node_modules/.pnpm/...) keep resolving. vite is invoked directly via
+# node (not pnpm) to avoid pnpm's pre-exec "install/verify" step, which fails
+# offline.
+COPY --from=builder /nextgraph-rs/node_modules /nextgraph-rs/node_modules
+COPY --from=builder /nextgraph-rs/app/miniapp /nextgraph-rs/app/miniapp
+#RUN mkdir -p /nextgraph-rs/app/nextgraph/
+COPY --from=builder /nextgraph-rs/app/nextgraph/dist-web/ /nextgraph-rs/app/nextgraph/dist-web
+
+RUN mkdir -p /nextgraph-rs/.ng/server
+COPY ngd.config.json /nextgraph-rs/.ng/server/config.json
+
+WORKDIR /nextgraph-rs
+
+# Default command runs ngd
+EXPOSE 14400
+ENTRYPOINT ["/sbin/tini", "--"]
+#ENV RUST_LOG=trace
+CMD ["/usr/local/bin/ngd", "--verbose"]

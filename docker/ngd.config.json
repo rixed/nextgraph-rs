@@ -1,0 +1,32 @@
+{
+  "V0": {
+    "listeners": [
+      {
+        "interface_name": "eth0",
+        "if_type": "Private",
+        "interface_refresh": 0,
+        "ipv6": true,
+        "port": 14400,
+        "private_core": false,
+        "serve_app": true,
+        "bind_public_ipv6": false,
+        "refuse_clients": false,
+        "discoverable": true,
+        "accept_direct": true,
+        "accept_forward_for": "No"
+      }
+    ],
+    "overlays_configs": [
+      {
+        "overlays": [],
+        "core": "Nobody",
+        "server": "AllRegisteredUser",
+        "allow_read": false,
+        "forward": []
+      }
+    ],
+    "registration": "Open",
+    "admin_user": null,
+    "registration_url": null
+  }
+}

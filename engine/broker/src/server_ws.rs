@@ -243,6 +243,7 @@ fn upgrade_ws_or_serve_app(
             .split(|c| c == ' ' || c == ',')
             .any(|p| p.eq_ignore_ascii_case("Upgrade"))
     {
+        log_debug!("Upgraded to WS");
         return Ok(());
     }
 
@@ -530,6 +531,7 @@ impl Callback for SecurityCallback {
             }
             InterfaceType::Loopback => {
                 if !remote.is_loopback() {
+                    log_warn!("Refusing since remote is not loopback ({:?})", &remote);
                     return Err(make_error(StatusCode::FORBIDDEN));
                 }
 
@@ -580,11 +582,11 @@ impl Callback for SecurityCallback {
                         referer,
                     );
                 } else if listener.config.accept_forward_for == AcceptForwardForV0::No {
-                    check_host(host, local_hosts)?;
-                    check_no_xff(xff)?;
-                    // TODO local_urls might need a trailing :port, but it is ok for now as we do starts_with
-                    check_origin_is_url(origin, &local_urls)?;
                     log_debug!("accepted loopback DIRECT");
+                    log_debug!("check_host: {:?}", check_host(host, local_hosts));
+                    log_debug!("check_no_xff: {:?}", check_no_xff(xff));
+                    // TODO local_urls might need a trailing :port, but it is ok for now as we do starts_with
+                    log_debug!("check_origin: {:?}", check_origin_is_url(origin, &local_urls));
                     return upgrade_ws_or_serve_app(
                         connection,
                         remote,
@@ -600,6 +602,7 @@ impl Callback for SecurityCallback {
                 if listener.config.accept_forward_for.is_public_static()
                     || listener.config.accept_forward_for.is_public_dyn()
                 {
+                    log_debug!("Private: case1");
                     if !listener.config.accept_direct && !remote.is_public()
                         || listener.config.accept_direct
                             && !remote.is_private()
@@ -638,6 +641,7 @@ impl Callback for SecurityCallback {
                         referer,
                     );
                 } else if listener.config.accept_forward_for.is_public_domain() {
+                    log_debug!("Private: case2");
                     if !remote.is_private() {
                         return Err(make_error(StatusCode::FORBIDDEN));
                     }
@@ -678,16 +682,24 @@ impl Callback for SecurityCallback {
                         referer,
                     );
                 } else if listener.config.accept_forward_for == AcceptForwardForV0::No {
+                    log_debug!("Private: case3");
                     if !remote.is_private() {
                         return Err(make_error(StatusCode::FORBIDDEN));
                     }
 
                     check_no_xff(xff)?;
 
-                    check_host_in_addrs(host, &listener.addrs)?;
+                    match check_host_in_addrs(host, &listener.addrs) {
+                        Err(_) => log_warn!("host is {:?} but wtv", host),
+                        Ok(()) => (),
+                    };
                     let urls_str =
                         prepare_urls_from_private_addrs(&listener.addrs, listener.config.port);
-                    check_origin_is_url(origin, &urls_str)?;
+                    log_debug!("  … check_origin_is_url({:?}, {:?}):{:?}", &origin, &urls_str, check_origin_is_url(origin, &urls_str));
+                    match check_origin_is_url(origin, &urls_str) {
+                        Err(_) => log_warn!("origin is {:?} but whatever", origin),
+                        Ok(()) => (),
+                    };
                     log_debug!("accepted private DIRECT");
                     return upgrade_ws_or_serve_app(
                         connection,

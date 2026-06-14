@@ -1,0 +1,21 @@
+{
+  "name": "@ng-org/lib-wasm",
+  "type": "module",
+  "version": "0.1.2-alpha.5",
+  "files": [
+    "lib_wasm_bg.wasm",
+    "lib_wasm.js",
+    "lib_wasm_bg.js",
+    "lib_wasm.d.ts",
+    "LICENSE-MIT",
+    "LICENSE-APACHE2",
+    "lib_wasm_bg.wasm.d.ts",
+    "snippets/**/*.js"
+  ],
+  "main": "lib_wasm.js",
+  "types": "lib_wasm.d.ts",
+  "sideEffects": [
+    "./lib_wasm.js",
+    "./snippets/*"
+  ]
+}

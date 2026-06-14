@@ -1,0 +1,28 @@
+# vim: ft=dockerfile
+# Use rust's latest alpine image as base image.
+FROM debian:trixie-slim
+
+RUN echo 'APT::Install-Recommends "0";' > \
+      /etc/apt/apt.conf.d/no_recommends
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get --yes update && \
+    apt-get --yes upgrade && \
+    apt-get --yes install \
+      tini \
+      vim-nox
+
+WORKDIR /nextgraph-rs
+
+COPY ngd ngcli /usr/local/bin/
+RUN mkdir -p app/nextgraph/dist-web
+COPY index.gzip index.sha256 /nextgraph-rs/app/nextgraph/dist-web/
+COPY ng.tgz /tmp/
+RUN tar zxf /tmp/ng.tgz --transform='s,^\.ng-docker/,.ng/,' && rm /tmp/ng.tgz
+
+# Default command runs ngd
+EXPOSE 14400
+ENTRYPOINT ["/usr/bin/tini", "--"]
+#ENV RUST_LOG=trace
+CMD ["/usr/local/bin/ngd", "--verbose"]

@@ -418,7 +418,7 @@ async fn main_inner() -> Result<(), NgcliError> {
                 } else {
                     // on purpose we don't log the key, just print it out to stdout, as it should not be saved in logger's files
                     println!("YOUR GENERATED KEY IS: {}", master_key);
-                    log_err!("At your request, the key wasn't saved. If you want to save it to disk, use ---save-key");
+                    log_err!("At your request, the key wasn't saved. If you want to save it to disk, use --save-key");
                     log_err!("provide it again to the next start of ngcli with --key option or NG_CLIENT_KEY env variable");
                 }
                 master_key.zeroize();

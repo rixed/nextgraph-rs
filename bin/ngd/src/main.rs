@@ -1015,7 +1015,7 @@ async fn main_inner() -> Result<(), NgdError> {
                         } else {
                             // on purpose we don't log the key, just print it out to stdout, as it should not be saved in logger's files
                             println!("YOUR GENERATED KEY IS: {}", master_key);
-                            log_err!("At your request, the key wasn't saved. If you want to save it to disk, use ---save-key");
+                            log_err!("At your request, the key wasn't saved. If you want to save it to disk, use --save-key");
                             log_err!("provide it again to the next start of ngd with --key option or NG_SERVER_KEY env variable");
                             log_err!("or use the below links to create a wallet and an admin account for this broker.");
                             log_err!("If you don't proceed to one of the above, during next startup, all your data will be deleted and a new key will be generated.");

@@ -3169,6 +3169,27 @@ pub async fn admin_create_user(
 }
 
 #[doc(hidden)]
+pub async fn admin_del_user(
+    server_peer_id: DirectPeerId,
+    admin_user_key: PrivKey,
+    server_addr: BindAddress,
+    user_to_del: PubKey,
+) -> Result<(), ProtocolError> {
+    let res = do_admin_call(
+        server_peer_id,
+        admin_user_key,
+        server_addr,
+        DelUser::V0(DelUserV0{ user: user_to_del }),
+    )
+    .await?;
+
+    match res {
+        AdminResponseContentV0::EmptyResponse => Ok(()),
+        _ => Err(ProtocolError::InvalidValue),
+    }
+}
+
+#[doc(hidden)]
 pub async fn admin_list_users(
     server_peer_id: DirectPeerId,
     admin_user_key: PrivKey,

@@ -473,6 +473,9 @@ impl IServerBroker for ServerBroker {
     fn del_user(&self, user_id: PubKey) -> Result<(), ProtocolError> {
         self.storage.del_user(user_id)
     }
+    fn modify_user(&self, user_id: PubKey, set_admin: bool) -> Result<(), ProtocolError> {
+        self.storage.modify_user(user_id, set_admin)
+    }
     fn list_users(&self, admins: bool) -> Result<Vec<PubKey>, ProtocolError> {
         self.storage.list_users(admins)
     }

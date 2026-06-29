@@ -286,6 +286,11 @@ async fn main_inner() -> Result<(), NgcliError> {
                             .about("removes a user from the broker")
                             .arg(arg!(<USER_ID> "userId of the user to remove. should be a base64-url encoded serde serialization of its pubkey [u8; 32]").required(true)))
                     .subcommand(
+                        Command::new("modify-user")
+                            .about("(re)set the admin flag of a given user")
+                            .arg(arg!(<USER_ID> "userId of the user to modify. Should be a base64-url encoded serde serializaton of its pubkey [u8; 32]").required(true))
+                            .arg(arg!(-a --admin <BOOL> "boolean to set the admin flag to").required(true).value_parser(["true", "false"])))
+                    .subcommand(
                         Command::new("list-users")
                             .about("list all users registered in the broker")
                             .arg(arg!(-a --admin "only lists admin users. otherwise, lists only non admin users").required(false)))
@@ -812,6 +817,34 @@ async fn main_inner() -> Result<(), NgcliError> {
                 )
                 .await?;
                 println!("User removed successfully");
+                return Ok(());
+            }
+            Some(("modify-user", sub2_matches)) => {
+                log_debug!("modify-user");
+                let _res = do_admin_call(
+                    keys[1],
+                    config_v0,
+                    ModifyUser::V0(ModifyUserV0 {
+                        user: sub2_matches
+                            .get_one::<String>("USER_ID")
+                            .unwrap()
+                            .as_str()
+                            .try_into()
+                            .map_err(|_| {
+                                NgcliError::OtherConfigErrorStr("supplied USER_ID is invalid")
+                            })?,
+                        set_admin: sub2_matches
+                            .get_one::<String>("admin")
+                            .unwrap()
+                            .as_str()
+                            .parse()
+                            .map_err(|_| {
+                                NgcliError::OtherConfigErrorStr("supplied admin is invalid")
+                            })?,
+                    }),
+                )
+                .await?;
+                println!("User modified successfully");
                 return Ok(());
             }
             Some(("list-users", sub2_matches)) => {

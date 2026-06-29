@@ -239,6 +239,12 @@ impl RocksDbServerStorage {
         // TODO: stop the verifier, if any
         Ok(())
     }
+    pub(crate) fn modify_user(&self, user_id: PubKey, set_admin: bool) -> Result<(), ProtocolError> {
+        log_debug!("modify_user {user_id}, set admin to {set_admin}");
+        let acc = Account::open(&user_id, &self.accounts_storage)?;
+        acc.modify(set_admin)?;
+        Ok(())
+    }
     pub(crate) fn list_users(&self, admins: bool) -> Result<Vec<PubKey>, ProtocolError> {
         log_debug!("list_users that are admin == {admins}");
         Ok(Account::get_all_users(admins, &self.accounts_storage)?)

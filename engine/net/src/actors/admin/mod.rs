@@ -18,3 +18,6 @@ pub use create_user::*;
 
 pub mod usage_stats;
 pub use usage_stats::*;
+
+pub mod modify_user;
+pub use modify_user::*;

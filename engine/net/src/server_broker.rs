@@ -166,4 +166,6 @@ pub trait IServerBroker: Send + Sync {
         user_id: &UserId,
         stats: &NetStats,
     ) -> Result<(), ServerError>;
+
+    fn modify_user(&self, user_id: PubKey, admin: bool) -> Result<(), ProtocolError>;
 }

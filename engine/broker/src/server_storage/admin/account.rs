@@ -305,6 +305,16 @@ impl<'a> Account<'a> {
         Ok(false)
     }
 
+    pub fn modify(&self, set_admin: bool) -> Result<(), StorageError> {
+        self.storage.put(
+            Self::PREFIX_ACCOUNT,
+            &to_vec(&self.id)?,
+            Some(Self::ADMIN),
+            &to_vec(&set_admin)?,
+            &None,
+        )
+    }
+
     pub fn del(&self) -> Result<(), StorageError> {
         self.storage.write_transaction(&mut |tx| {
             let id = to_vec(&self.id)?;

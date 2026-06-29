@@ -15,6 +15,7 @@ use async_std::sync::Mutex;
 use serde::{Deserialize, Serialize};
 
 use ng_repo::errors::*;
+use ng_repo::types::PubKey;
 
 use super::super::StartProtocol;
 
@@ -25,33 +26,38 @@ use crate::{actor::*, types::ProtocolMessage};
 
 /// List users registered on this broker
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-pub struct ListUsersV0 {
-    /// should list only the admins. if false, admin users will be excluded
-    pub admins: bool,
+pub struct ModifyUserV0 {
+    pub user: PubKey,
+    pub set_admin: bool,
 }
 
-/// List users registered on this broker
+/// Update the admin flag of some user
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-pub enum ListUsers {
-    V0(ListUsersV0),
+pub enum ModifyUser {
+    V0(ModifyUserV0),
 }
 
-impl ListUsers {
-    pub fn admins(&self) -> bool {
+impl ModifyUser {
+    pub fn user(&self) -> PubKey {
         match self {
-            Self::V0(o) => o.admins,
+            Self::V0(o) => o.user,
+        }
+    }
+    pub fn set_admin(&self) -> bool {
+        match self {
+            Self::V0(o) => o.set_admin,
         }
     }
     pub fn get_actor(&self) -> Box<dyn EActor> {
-        Actor::<ListUsers, AdminResponse>::new_responder(0)
+        Actor::<ModifyUser, AdminResponse>::new_responder(0)
     }
 }
 
-impl TryFrom<ProtocolMessage> for ListUsers {
+impl TryFrom<ProtocolMessage> for ModifyUser {
     type Error = ProtocolError;
     fn try_from(msg: ProtocolMessage) -> Result<Self, Self::Error> {
         if let ProtocolMessage::Start(StartProtocol::Admin(AdminRequest::V0(AdminRequestV0 {
-            content: AdminRequestContentV0::ListUsers(a),
+            content: AdminRequestContentV0::ModifyUser(a),
             ..
         }))) = msg
         {
@@ -63,30 +69,30 @@ impl TryFrom<ProtocolMessage> for ListUsers {
     }
 }
 
-impl From<ListUsers> for ProtocolMessage {
-    fn from(_msg: ListUsers) -> ProtocolMessage {
+impl From<ModifyUser> for ProtocolMessage {
+    fn from(_msg: ModifyUser) -> ProtocolMessage {
         unimplemented!();
     }
 }
 
-impl From<ListUsers> for AdminRequestContentV0 {
-    fn from(msg: ListUsers) -> AdminRequestContentV0 {
-        AdminRequestContentV0::ListUsers(msg)
+impl From<ModifyUser> for AdminRequestContentV0 {
+    fn from(msg: ModifyUser) -> AdminRequestContentV0 {
+        AdminRequestContentV0::ModifyUser(msg)
     }
 }
 
-impl Actor<'_, ListUsers, AdminResponse> {}
+impl Actor<'_, ModifyUser, AdminResponse> {}
 
 #[async_trait::async_trait]
-impl EActor for Actor<'_, ListUsers, AdminResponse> {
+impl EActor for Actor<'_, ModifyUser, AdminResponse> {
     async fn respond(
         &mut self,
         msg: ProtocolMessage,
         fsm: Arc<Mutex<NoiseFSM>>,
     ) -> Result<(), ProtocolError> {
-        let req = ListUsers::try_from(msg)?;
+        let req = ModifyUser::try_from(msg)?;
         let sb = { BROKER.read().await.get_server_broker()? };
-        let res = { sb.read().await.list_users(req.admins()) };
+        let res = { sb.read().await.modify_user(req.user(), req.set_admin()) };
 
         let response: AdminResponseV0 = res.into();
         fsm.lock().await.send(response.into()).await?;

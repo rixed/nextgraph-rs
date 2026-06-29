@@ -3190,6 +3190,28 @@ pub async fn admin_del_user(
 }
 
 #[doc(hidden)]
+pub async fn admin_modify_user(
+    server_peer_id: DirectPeerId,
+    admin_user_key: PrivKey,
+    server_addr: BindAddress,
+    user_to_modify: PubKey,
+    set_admin: bool,
+) -> Result<(), ProtocolError> {
+    let res = do_admin_call(
+        server_peer_id,
+        admin_user_key,
+        server_addr,
+        ModifyUser::V0(ModifyUserV0{ user: user_to_modify, set_admin }),
+    )
+    .await?;
+
+    match res {
+        AdminResponseContentV0::EmptyResponse => Ok(()),
+        _ => Err(ProtocolError::InvalidValue),
+    }
+}
+
+#[doc(hidden)]
 pub async fn admin_list_users(
     server_peer_id: DirectPeerId,
     admin_user_key: PrivKey,
